@@ -3,10 +3,11 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAppStore } from "@/lib/store";
 import { IngredientsTab } from "@/components/ficha/IngredientsTab";
+import { RecipesTab } from "@/components/ficha/RecipesTab";
 import { CombosTab } from "@/components/ficha/CombosTab";
 import { PlatformsTab } from "@/components/ficha/PlatformsTab";
 import { ScannerTab } from "@/components/ficha/ScannerTab";
-import { Package, ChefHat, Store, ScanLine } from "lucide-react";
+import { Package, ChefHat, Store, ScanLine, BookOpen } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
