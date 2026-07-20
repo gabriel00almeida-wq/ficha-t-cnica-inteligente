@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Upload, Sparkles, Check, X } from "lucide-react";
+import { Loader2, Camera, Image as ImageIcon, Sparkles, Check, X } from "lucide-react";
 import { extractInvoice, type OcrItem } from "@/lib/ocr.functions";
 import {
   type Ingredient,
