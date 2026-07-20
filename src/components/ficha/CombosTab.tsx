@@ -16,6 +16,7 @@ import {
   type Ingredient,
   type Platforms,
   comboCost,
+  effectivePricePerUnit,
   platformResult,
   formatBRL,
   uid,
