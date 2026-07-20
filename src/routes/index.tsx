@@ -37,6 +37,8 @@ function Index() {
     hydrated,
     upsertIngredient,
     removeIngredient,
+    upsertRecipe,
+    removeRecipe,
     upsertCombo,
     removeCombo,
     setPlatforms,
@@ -65,20 +67,24 @@ function Index() {
 
       <main className="max-w-4xl mx-auto px-4 py-6">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-4 h-auto">
-            <TabsTrigger value="scanner" className="flex-col gap-1 py-2 text-xs">
+          <TabsList className="grid w-full grid-cols-5 h-auto">
+            <TabsTrigger value="scanner" className="flex-col gap-1 py-2 text-[11px]">
               <ScanLine className="w-4 h-4" />
-              <span>Scanner NF</span>
+              <span>Scanner</span>
             </TabsTrigger>
-            <TabsTrigger value="ingredients" className="flex-col gap-1 py-2 text-xs">
+            <TabsTrigger value="ingredients" className="flex-col gap-1 py-2 text-[11px]">
               <Package className="w-4 h-4" />
               <span>Ingredientes</span>
             </TabsTrigger>
-            <TabsTrigger value="combos" className="flex-col gap-1 py-2 text-xs">
+            <TabsTrigger value="recipes" className="flex-col gap-1 py-2 text-[11px]">
+              <BookOpen className="w-4 h-4" />
+              <span>Receitas</span>
+            </TabsTrigger>
+            <TabsTrigger value="combos" className="flex-col gap-1 py-2 text-[11px]">
               <ChefHat className="w-4 h-4" />
               <span>Combinados</span>
             </TabsTrigger>
-            <TabsTrigger value="platforms" className="flex-col gap-1 py-2 text-xs">
+            <TabsTrigger value="platforms" className="flex-col gap-1 py-2 text-[11px]">
               <Store className="w-4 h-4" />
               <span>Plataformas</span>
             </TabsTrigger>
@@ -95,10 +101,19 @@ function Index() {
                 onRemove={removeIngredient}
               />
             </TabsContent>
+            <TabsContent value="recipes">
+              <RecipesTab
+                recipes={state.recipes}
+                ingredients={state.ingredients}
+                onUpsert={upsertRecipe}
+                onRemove={removeRecipe}
+              />
+            </TabsContent>
             <TabsContent value="combos">
               <CombosTab
                 combos={state.combos}
                 ingredients={state.ingredients}
+                recipes={state.recipes}
                 platforms={state.platforms}
                 onUpsert={upsertCombo}
                 onRemove={removeCombo}
