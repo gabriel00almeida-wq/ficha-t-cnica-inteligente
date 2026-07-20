@@ -10,12 +10,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, Package } from "lucide-react";
+import { Trash2, Plus, Package, Scissors, X } from "lucide-react";
 import {
   type Ingredient,
   type Unit,
   formatBRL,
   uid,
+  effectivePricePerUnit,
 } from "@/lib/store";
 
 type Props = {
@@ -32,13 +33,39 @@ const UNIT_LABEL: Record<Unit, string> = {
   un: "por unidade",
 };
 
+type YieldMode = "percent" | "weights";
+
+function parseNum(v: string) {
+  return parseFloat(v.replace(",", ".")) || 0;
+}
+
 export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
   const [name, setName] = useState("");
   const [unit, setUnit] = useState<Unit>("g");
   const [price, setPrice] = useState("");
 
+  const [hasYield, setHasYield] = useState(false);
+  const [yieldMode, setYieldMode] = useState<YieldMode>("percent");
+  const [yieldPct, setYieldPct] = useState("");
+  const [gross, setGross] = useState("");
+  const [net, setNet] = useState("");
+
+  const [editingYieldId, setEditingYieldId] = useState<string | null>(null);
+
+  function computeYield(): number | undefined {
+    if (!hasYield) return undefined;
+    if (yieldMode === "percent") {
+      const p = parseNum(yieldPct);
+      return p > 0 && p < 100 ? p : undefined;
+    }
+    const g = parseNum(gross);
+    const n = parseNum(net);
+    if (g > 0 && n > 0 && n < g) return (n / g) * 100;
+    return undefined;
+  }
+
   function add() {
-    const p = parseFloat(price.replace(",", "."));
+    const p = parseNum(price);
     if (!name.trim() || !isFinite(p) || p <= 0) return;
     onUpsert({
       id: uid(),
@@ -46,9 +73,14 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
       unit,
       pricePerUnit: p,
       lastUpdated: new Date().toISOString(),
+      yieldPercent: computeYield(),
     });
     setName("");
     setPrice("");
+    setHasYield(false);
+    setYieldPct("");
+    setGross("");
+    setNet("");
   }
 
   return (
@@ -61,7 +93,7 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="ex: salmão fresco"
+              placeholder="ex: salmão bruto"
             />
           </div>
           <div>
@@ -92,6 +124,95 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
             </Button>
           </div>
         </div>
+
+        <div className="mt-4 pt-4 border-t">
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hasYield}
+              onChange={(e) => setHasYield(e.target.checked)}
+              className="w-4 h-4 accent-primary"
+            />
+            <Scissors className="w-4 h-4 text-muted-foreground" />
+            <span>Este ingrediente tem limpeza/perda (proteína, peixe...)</span>
+          </label>
+
+          {hasYield && (
+            <div className="mt-3 space-y-3 pl-6">
+              <div className="flex gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setYieldMode("percent")}
+                  className={`px-3 py-1.5 rounded-md border ${
+                    yieldMode === "percent"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background border-border"
+                  }`}
+                >
+                  % de aproveitamento
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setYieldMode("weights")}
+                  className={`px-3 py-1.5 rounded-md border ${
+                    yieldMode === "weights"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background border-border"
+                  }`}
+                >
+                  Bruto → limpo
+                </button>
+              </div>
+
+              {yieldMode === "percent" ? (
+                <div className="grid gap-2 sm:grid-cols-[180px_1fr] items-end">
+                  <div>
+                    <Label className="text-xs">Rendimento (%)</Label>
+                    <Input
+                      inputMode="decimal"
+                      value={yieldPct}
+                      onChange={(e) => setYieldPct(e.target.value)}
+                      placeholder="ex: 55"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground pb-2">
+                    Ex: 55 → de cada 100g bruto sobram 55g limpos.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-3 items-end">
+                  <div>
+                    <Label className="text-xs">Peso bruto</Label>
+                    <Input
+                      inputMode="decimal"
+                      value={gross}
+                      onChange={(e) => setGross(e.target.value)}
+                      placeholder="1000"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Peso limpo</Label>
+                    <Input
+                      inputMode="decimal"
+                      value={net}
+                      onChange={(e) => setNet(e.target.value)}
+                      placeholder="550"
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground pb-2">
+                    {(() => {
+                      const g = parseNum(gross);
+                      const n = parseNum(net);
+                      if (g > 0 && n > 0 && n < g)
+                        return `Rendimento: ${((n / g) * 100).toFixed(1)}%`;
+                      return "Informe ambos na mesma unidade.";
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </Card>
 
       <div className="space-y-2">
@@ -104,32 +225,168 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
             Nenhum ingrediente ainda. Adicione manualmente acima ou use o Scanner de NF.
           </Card>
         )}
-        {ingredients.map((ing) => (
-          <Card key={ing.id} className="card-paper p-3 flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="font-medium truncate">{ing.name}</div>
-              <div className="text-xs text-muted-foreground">
-                Atualizado {new Date(ing.lastUpdated).toLocaleDateString("pt-BR")}
+        {ingredients.map((ing) => {
+          const effective = effectivePricePerUnit(ing);
+          const hasLoss = ing.yieldPercent && ing.yieldPercent > 0 && ing.yieldPercent < 100;
+          return (
+            <Card key={ing.id} className="card-paper p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate flex items-center gap-2">
+                    {ing.name}
+                    {hasLoss && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/25 text-accent-foreground font-semibold">
+                        {ing.yieldPercent!.toFixed(0)}% rend.
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Atualizado {new Date(ing.lastUpdated).toLocaleDateString("pt-BR")}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-display text-base leading-tight">
+                    {formatBRL(ing.pricePerUnit)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {UNIT_LABEL[ing.unit]}
+                  </div>
+                  {hasLoss && (
+                    <div className="text-[11px] text-primary font-semibold mt-0.5">
+                      líquido: {formatBRL(effective)}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() =>
+                    setEditingYieldId(editingYieldId === ing.id ? null : ing.id)
+                  }
+                  aria-label="Editar rendimento"
+                  title="Editar rendimento"
+                >
+                  <Scissors className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onRemove(ing.id)}
+                  aria-label="Remover"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
-            </div>
-            <div className="text-right">
-              <div className="font-display text-base">
-                {formatBRL(ing.pricePerUnit)}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {UNIT_LABEL[ing.unit]}
-              </div>
-            </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onRemove(ing.id)}
-              aria-label="Remover"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </Card>
-        ))}
+
+              {editingYieldId === ing.id && (
+                <YieldEditor
+                  ingredient={ing}
+                  onSave={(yieldPercent) => {
+                    onUpsert({ ...ing, yieldPercent, lastUpdated: new Date().toISOString() });
+                    setEditingYieldId(null);
+                  }}
+                  onClear={() => {
+                    onUpsert({ ...ing, yieldPercent: undefined, lastUpdated: new Date().toISOString() });
+                    setEditingYieldId(null);
+                  }}
+                  onCancel={() => setEditingYieldId(null)}
+                />
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function YieldEditor({
+  ingredient,
+  onSave,
+  onClear,
+  onCancel,
+}: {
+  ingredient: Ingredient;
+  onSave: (yieldPercent: number) => void;
+  onClear: () => void;
+  onCancel: () => void;
+}) {
+  const [mode, setMode] = useState<YieldMode>("percent");
+  const [pct, setPct] = useState(
+    ingredient.yieldPercent ? String(ingredient.yieldPercent) : ""
+  );
+  const [gross, setGross] = useState("");
+  const [net, setNet] = useState("");
+
+  function save() {
+    let y = 0;
+    if (mode === "percent") y = parseNum(pct);
+    else {
+      const g = parseNum(gross);
+      const n = parseNum(net);
+      if (g > 0 && n > 0 && n < g) y = (n / g) * 100;
+    }
+    if (y > 0 && y < 100) onSave(y);
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t space-y-3 bg-secondary/20 -mx-3 -mb-3 px-3 pb-3 rounded-b-lg">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => setMode("percent")}
+            className={`px-2.5 py-1 rounded-md border ${
+              mode === "percent" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"
+            }`}
+          >
+            %
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("weights")}
+            className={`px-2.5 py-1 rounded-md border ${
+              mode === "weights" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"
+            }`}
+          >
+            Bruto → limpo
+          </button>
+        </div>
+        <Button size="icon" variant="ghost" onClick={onCancel} className="h-7 w-7">
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {mode === "percent" ? (
+        <div>
+          <Label className="text-xs">Rendimento (%)</Label>
+          <Input
+            inputMode="decimal"
+            value={pct}
+            onChange={(e) => setPct(e.target.value)}
+            placeholder="ex: 55"
+          />
+        </div>
+      ) : (
+        <div className="grid gap-2 grid-cols-2">
+          <div>
+            <Label className="text-xs">Peso bruto</Label>
+            <Input inputMode="decimal" value={gross} onChange={(e) => setGross(e.target.value)} placeholder="1000" />
+          </div>
+          <div>
+            <Label className="text-xs">Peso limpo</Label>
+            <Input inputMode="decimal" value={net} onChange={(e) => setNet(e.target.value)} placeholder="550" />
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Button size="sm" onClick={save} className="flex-1">Salvar rendimento</Button>
+        {ingredient.yieldPercent && (
+          <Button size="sm" variant="outline" onClick={onClear}>
+            Remover
+          </Button>
+        )}
       </div>
     </div>
   );
