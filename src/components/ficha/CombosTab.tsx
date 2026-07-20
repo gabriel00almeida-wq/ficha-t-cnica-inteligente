@@ -84,6 +84,7 @@ export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, o
 function ComboCard({
   combo,
   ingredients,
+  recipes,
   platforms,
   expanded,
   onToggle,
@@ -92,13 +93,17 @@ function ComboCard({
 }: {
   combo: Combo;
   ingredients: Ingredient[];
+  recipes: Recipe[];
   platforms: Platforms;
   expanded: boolean;
   onToggle: () => void;
   onChange: (c: Combo) => void;
   onRemove: () => void;
 }) {
-  const cost = useMemo(() => comboCost(combo, ingredients), [combo, ingredients]);
+  const cost = useMemo(
+    () => comboCost(combo, ingredients, recipes),
+    [combo, ingredients, recipes],
+  );
 
   const platformRows = [
     { key: "food99" as const, label: "99Food", fees: platforms.food99, price: combo.prices.food99 },
@@ -109,15 +114,26 @@ function ComboCard({
   function setName(name: string) {
     onChange({ ...combo, name });
   }
-  function addItem() {
+  function addIngredientItem() {
     const first = ingredients[0];
     if (!first) return;
     onChange({
       ...combo,
-      items: [...combo.items, { ingredientId: first.id, quantity: 0 }],
+      items: [...combo.items, { ingredientId: first.id, quantity: 0, kind: "ingredient" }],
     });
   }
-  function updateItem(idx: number, patch: Partial<{ ingredientId: string; quantity: number }>) {
+  function addRecipeItem() {
+    const first = recipes[0];
+    if (!first) return;
+    onChange({
+      ...combo,
+      items: [...combo.items, { ingredientId: first.id, quantity: 0, kind: "recipe" }],
+    });
+  }
+  function updateItem(
+    idx: number,
+    patch: Partial<{ ingredientId: string; quantity: number; kind: "ingredient" | "recipe" }>,
+  ) {
     const items = combo.items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
     onChange({ ...combo, items });
   }
