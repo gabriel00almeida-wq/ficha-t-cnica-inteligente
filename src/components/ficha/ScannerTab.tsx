@@ -43,7 +43,8 @@ function normalize(item: OcrItem): { baseUnit: Unit; basePricePerUnit: number } 
 }
 
 export function ScannerTab({ ingredients, onUpsert }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
