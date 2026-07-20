@@ -6,8 +6,14 @@ export type Ingredient = {
   id: string;
   name: string;
   unit: Unit; // base unit used in recipes
-  pricePerUnit: number; // BRL per base unit (e.g. per g)
+  pricePerUnit: number; // BRL per base unit as PURCHASED (gross, before cleaning)
   lastUpdated: string;
+  /**
+   * Rendimento líquido em % (0-100). Ex: salmão bruto com 55% de aproveitamento.
+   * Quando definido, o custo efetivo por unidade utilizável = pricePerUnit / (yieldPercent/100).
+   * Se ausente ou 100, considera-se que não há perda.
+   */
+  yieldPercent?: number;
 };
 
 export type ComboItem = {
