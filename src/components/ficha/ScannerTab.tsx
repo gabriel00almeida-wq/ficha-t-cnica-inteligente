@@ -142,36 +142,56 @@ export function ScannerTab({ ingredients, onUpsert }: Props) {
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
           <input
-            ref={fileRef}
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={galleryRef}
             type="file"
             accept="image/*"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) handleFile(f);
-              e.target.value = ""; // permite reenviar a mesma foto
+              e.target.value = "";
             }}
           />
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => cameraRef.current?.click()}
             disabled={loading}
-            className="w-full rounded-lg border-2 border-dashed border-border hover:border-primary/60 hover:bg-primary/5 transition-colors py-8 px-4 flex flex-col items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors py-6 px-4 flex flex-col items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
           >
             {loading ? (
               <>
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground">Analisando com IA...</span>
+                <Loader2 className="w-8 h-8 animate-spin" />
+                <span className="text-sm">Analisando com IA...</span>
               </>
             ) : (
               <>
-                <Upload className="w-8 h-8 text-primary" />
-                <span className="font-medium">Enviar foto da nota fiscal</span>
-                <span className="text-xs text-muted-foreground">Toque para escolher da galeria ou tirar uma foto</span>
+                <Camera className="w-8 h-8" />
+                <span className="font-medium">Abrir câmera e tirar foto</span>
               </>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={() => galleryRef.current?.click()}
+            disabled={loading}
+            className="w-full rounded-lg border border-border hover:bg-muted transition-colors py-3 px-4 flex items-center justify-center gap-2 text-sm disabled:opacity-60"
+          >
+            <ImageIcon className="w-4 h-4" />
+            <span>Escolher da galeria</span>
           </button>
         </div>
 
