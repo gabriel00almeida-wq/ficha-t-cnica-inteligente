@@ -145,11 +145,17 @@ export function useAppStore() {
   };
 }
 
+export function effectivePricePerUnit(ing: Ingredient): number {
+  const y = ing.yieldPercent;
+  if (!y || y <= 0 || y >= 100) return ing.pricePerUnit;
+  return ing.pricePerUnit / (y / 100);
+}
+
 export function comboCost(combo: Combo, ingredients: Ingredient[]): number {
   return combo.items.reduce((sum, it) => {
     const ing = ingredients.find((i) => i.id === it.ingredientId);
     if (!ing) return sum;
-    return sum + ing.pricePerUnit * it.quantity;
+    return sum + effectivePricePerUnit(ing) * it.quantity;
   }, 0);
 }
 
