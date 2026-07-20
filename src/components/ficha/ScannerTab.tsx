@@ -141,25 +141,37 @@ export function ScannerTab({ ingredients, onUpsert }: Props) {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-          <Input
+        <div className="mt-4">
+          <input
             ref={fileRef}
             type="file"
             accept="image/*"
-            capture="environment"
+            className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) handleFile(f);
+              e.target.value = ""; // permite reenviar a mesma foto
             }}
           />
-          <Button
+          <button
+            type="button"
             onClick={() => fileRef.current?.click()}
             disabled={loading}
-            variant="outline"
+            className="w-full rounded-lg border-2 border-dashed border-border hover:border-primary/60 hover:bg-primary/5 transition-colors py-8 px-4 flex flex-col items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-            {loading ? "Analisando..." : "Escolher foto"}
-          </Button>
+            {loading ? (
+              <>
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Analisando com IA...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-8 h-8 text-primary" />
+                <span className="font-medium">Enviar foto da nota fiscal</span>
+                <span className="text-xs text-muted-foreground">Toque para escolher da galeria ou tirar uma foto</span>
+              </>
+            )}
+          </button>
         </div>
 
         {error && (
