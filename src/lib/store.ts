@@ -18,7 +18,20 @@ export type Ingredient = {
 
 export type ComboItem = {
   ingredientId: string;
-  quantity: number; // in ingredient's base unit
+  quantity: number;
+  /**
+   * "ingredient" (padrão) → ingredientId é um Ingredient e quantity está na unidade base dele.
+   * "recipe" → ingredientId aponta para uma Recipe e quantity está em unidades da receita.
+   */
+  kind?: "ingredient" | "recipe";
+};
+
+export type Recipe = {
+  id: string;
+  name: string;
+  items: ComboItem[]; // apenas ingredientes
+  yieldUnits: number; // rende quantas unidades (ex: 10 sushis, 500 = 500g de shari)
+  yieldLabel?: string; // rótulo livre, ex: "sushis", "porções", "g"
 };
 
 export type Combo = {
@@ -33,8 +46,8 @@ export type Combo = {
 };
 
 export type PlatformFees = {
-  feePercent: number; // e.g. 23 means 23%
-  fixedFee: number; // BRL per order
+  feePercent: number;
+  fixedFee: number;
 };
 
 export type Platforms = {
@@ -45,6 +58,7 @@ export type Platforms = {
 
 export type AppState = {
   ingredients: Ingredient[];
+  recipes: Recipe[];
   combos: Combo[];
   platforms: Platforms;
 };
