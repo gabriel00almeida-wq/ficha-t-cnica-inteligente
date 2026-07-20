@@ -67,6 +67,7 @@ const STORAGE_KEY = "ficha-sushi:v1";
 
 const defaultState: AppState = {
   ingredients: [],
+  recipes: [],
   combos: [],
   platforms: {
     food99: { feePercent: 18, fixedFee: 0 },
@@ -83,6 +84,7 @@ function load(): AppState {
     const parsed = JSON.parse(raw) as Partial<AppState>;
     return {
       ingredients: parsed.ingredients ?? [],
+      recipes: parsed.recipes ?? [],
       combos: parsed.combos ?? [],
       platforms: { ...defaultState.platforms, ...(parsed.platforms ?? {}) },
     };
@@ -123,9 +125,38 @@ export function useAppStore() {
     setState((s) => ({
       ...s,
       ingredients: s.ingredients.filter((i) => i.id !== id),
+      recipes: s.recipes.map((r) => ({
+        ...r,
+        items: r.items.filter((it) => it.ingredientId !== id),
+      })),
       combos: s.combos.map((c) => ({
         ...c,
-        items: c.items.filter((it) => it.ingredientId !== id),
+        items: c.items.filter(
+          (it) => it.kind === "recipe" || it.ingredientId !== id,
+        ),
+      })),
+    }));
+  }, []);
+
+  const upsertRecipe = useCallback((recipe: Recipe) => {
+    setState((s) => {
+      const idx = s.recipes.findIndex((r) => r.id === recipe.id);
+      const next = [...s.recipes];
+      if (idx >= 0) next[idx] = recipe;
+      else next.push(recipe);
+      return { ...s, recipes: next };
+    });
+  }, []);
+
+  const removeRecipe = useCallback((id: string) => {
+    setState((s) => ({
+      ...s,
+      recipes: s.recipes.filter((r) => r.id !== id),
+      combos: s.combos.map((c) => ({
+        ...c,
+        items: c.items.filter(
+          (it) => !(it.kind === "recipe" && it.ingredientId === id),
+        ),
       })),
     }));
   }, []);
@@ -153,6 +184,8 @@ export function useAppStore() {
     hydrated,
     upsertIngredient,
     removeIngredient,
+    upsertRecipe,
+    removeRecipe,
     upsertCombo,
     removeCombo,
     setPlatforms,
