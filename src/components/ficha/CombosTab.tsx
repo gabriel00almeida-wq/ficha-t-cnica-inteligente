@@ -14,9 +14,11 @@ import { Trash2, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import {
   type Combo,
   type Ingredient,
+  type Recipe,
   type Platforms,
   comboCost,
   effectivePricePerUnit,
+  recipeUnitCost,
   platformResult,
   formatBRL,
   uid,
@@ -25,12 +27,13 @@ import {
 type Props = {
   combos: Combo[];
   ingredients: Ingredient[];
+  recipes: Recipe[];
   platforms: Platforms;
   onUpsert: (c: Combo) => void;
   onRemove: (id: string) => void;
 };
 
-export function CombosTab({ combos, ingredients, platforms, onUpsert, onRemove }: Props) {
+export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, onRemove }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   function addNew() {
