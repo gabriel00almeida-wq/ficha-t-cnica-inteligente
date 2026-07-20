@@ -69,6 +69,7 @@ export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, o
           key={combo.id}
           combo={combo}
           ingredients={ingredients}
+          recipes={recipes}
           platforms={platforms}
           expanded={expanded === combo.id}
           onToggle={() => setExpanded((e) => (e === combo.id ? null : combo.id))}
