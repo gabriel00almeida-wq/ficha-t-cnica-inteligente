@@ -198,8 +198,30 @@ export function effectivePricePerUnit(ing: Ingredient): number {
   return ing.pricePerUnit / (y / 100);
 }
 
-export function comboCost(combo: Combo, ingredients: Ingredient[]): number {
+export function recipeCost(recipe: Recipe, ingredients: Ingredient[]): number {
+  return recipe.items.reduce((sum, it) => {
+    const ing = ingredients.find((i) => i.id === it.ingredientId);
+    if (!ing) return sum;
+    return sum + effectivePricePerUnit(ing) * it.quantity;
+  }, 0);
+}
+
+export function recipeUnitCost(recipe: Recipe, ingredients: Ingredient[]): number {
+  const total = recipeCost(recipe, ingredients);
+  return recipe.yieldUnits > 0 ? total / recipe.yieldUnits : 0;
+}
+
+export function comboCost(
+  combo: Combo,
+  ingredients: Ingredient[],
+  recipes: Recipe[] = [],
+): number {
   return combo.items.reduce((sum, it) => {
+    if (it.kind === "recipe") {
+      const r = recipes.find((x) => x.id === it.ingredientId);
+      if (!r) return sum;
+      return sum + recipeUnitCost(r, ingredients) * it.quantity;
+    }
     const ing = ingredients.find((i) => i.id === it.ingredientId);
     if (!ing) return sum;
     return sum + effectivePricePerUnit(ing) * it.quantity;
