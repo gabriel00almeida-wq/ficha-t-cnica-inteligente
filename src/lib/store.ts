@@ -18,7 +18,20 @@ export type Ingredient = {
 
 export type ComboItem = {
   ingredientId: string;
-  quantity: number; // in ingredient's base unit
+  quantity: number;
+  /**
+   * "ingredient" (padrão) → ingredientId é um Ingredient e quantity está na unidade base dele.
+   * "recipe" → ingredientId aponta para uma Recipe e quantity está em unidades da receita.
+   */
+  kind?: "ingredient" | "recipe";
+};
+
+export type Recipe = {
+  id: string;
+  name: string;
+  items: ComboItem[]; // apenas ingredientes
+  yieldUnits: number; // rende quantas unidades (ex: 10 sushis, 500 = 500g de shari)
+  yieldLabel?: string; // rótulo livre, ex: "sushis", "porções", "g"
 };
 
 export type Combo = {
@@ -33,8 +46,8 @@ export type Combo = {
 };
 
 export type PlatformFees = {
-  feePercent: number; // e.g. 23 means 23%
-  fixedFee: number; // BRL per order
+  feePercent: number;
+  fixedFee: number;
 };
 
 export type Platforms = {
@@ -45,6 +58,7 @@ export type Platforms = {
 
 export type AppState = {
   ingredients: Ingredient[];
+  recipes: Recipe[];
   combos: Combo[];
   platforms: Platforms;
 };
@@ -53,6 +67,7 @@ const STORAGE_KEY = "ficha-sushi:v1";
 
 const defaultState: AppState = {
   ingredients: [],
+  recipes: [],
   combos: [],
   platforms: {
     food99: { feePercent: 18, fixedFee: 0 },
@@ -69,6 +84,7 @@ function load(): AppState {
     const parsed = JSON.parse(raw) as Partial<AppState>;
     return {
       ingredients: parsed.ingredients ?? [],
+      recipes: parsed.recipes ?? [],
       combos: parsed.combos ?? [],
       platforms: { ...defaultState.platforms, ...(parsed.platforms ?? {}) },
     };
@@ -109,9 +125,38 @@ export function useAppStore() {
     setState((s) => ({
       ...s,
       ingredients: s.ingredients.filter((i) => i.id !== id),
+      recipes: s.recipes.map((r) => ({
+        ...r,
+        items: r.items.filter((it) => it.ingredientId !== id),
+      })),
       combos: s.combos.map((c) => ({
         ...c,
-        items: c.items.filter((it) => it.ingredientId !== id),
+        items: c.items.filter(
+          (it) => it.kind === "recipe" || it.ingredientId !== id,
+        ),
+      })),
+    }));
+  }, []);
+
+  const upsertRecipe = useCallback((recipe: Recipe) => {
+    setState((s) => {
+      const idx = s.recipes.findIndex((r) => r.id === recipe.id);
+      const next = [...s.recipes];
+      if (idx >= 0) next[idx] = recipe;
+      else next.push(recipe);
+      return { ...s, recipes: next };
+    });
+  }, []);
+
+  const removeRecipe = useCallback((id: string) => {
+    setState((s) => ({
+      ...s,
+      recipes: s.recipes.filter((r) => r.id !== id),
+      combos: s.combos.map((c) => ({
+        ...c,
+        items: c.items.filter(
+          (it) => !(it.kind === "recipe" && it.ingredientId === id),
+        ),
       })),
     }));
   }, []);
@@ -139,6 +184,8 @@ export function useAppStore() {
     hydrated,
     upsertIngredient,
     removeIngredient,
+    upsertRecipe,
+    removeRecipe,
     upsertCombo,
     removeCombo,
     setPlatforms,
@@ -151,8 +198,30 @@ export function effectivePricePerUnit(ing: Ingredient): number {
   return ing.pricePerUnit / (y / 100);
 }
 
-export function comboCost(combo: Combo, ingredients: Ingredient[]): number {
+export function recipeCost(recipe: Recipe, ingredients: Ingredient[]): number {
+  return recipe.items.reduce((sum, it) => {
+    const ing = ingredients.find((i) => i.id === it.ingredientId);
+    if (!ing) return sum;
+    return sum + effectivePricePerUnit(ing) * it.quantity;
+  }, 0);
+}
+
+export function recipeUnitCost(recipe: Recipe, ingredients: Ingredient[]): number {
+  const total = recipeCost(recipe, ingredients);
+  return recipe.yieldUnits > 0 ? total / recipe.yieldUnits : 0;
+}
+
+export function comboCost(
+  combo: Combo,
+  ingredients: Ingredient[],
+  recipes: Recipe[] = [],
+): number {
   return combo.items.reduce((sum, it) => {
+    if (it.kind === "recipe") {
+      const r = recipes.find((x) => x.id === it.ingredientId);
+      if (!r) return sum;
+      return sum + recipeUnitCost(r, ingredients) * it.quantity;
+    }
     const ing = ingredients.find((i) => i.id === it.ingredientId);
     if (!ing) return sum;
     return sum + effectivePricePerUnit(ing) * it.quantity;

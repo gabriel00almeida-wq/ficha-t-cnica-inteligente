@@ -14,9 +14,11 @@ import { Trash2, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import {
   type Combo,
   type Ingredient,
+  type Recipe,
   type Platforms,
   comboCost,
   effectivePricePerUnit,
+  recipeUnitCost,
   platformResult,
   formatBRL,
   uid,
@@ -25,12 +27,13 @@ import {
 type Props = {
   combos: Combo[];
   ingredients: Ingredient[];
+  recipes: Recipe[];
   platforms: Platforms;
   onUpsert: (c: Combo) => void;
   onRemove: (id: string) => void;
 };
 
-export function CombosTab({ combos, ingredients, platforms, onUpsert, onRemove }: Props) {
+export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, onRemove }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   function addNew() {
@@ -66,6 +69,7 @@ export function CombosTab({ combos, ingredients, platforms, onUpsert, onRemove }
           key={combo.id}
           combo={combo}
           ingredients={ingredients}
+          recipes={recipes}
           platforms={platforms}
           expanded={expanded === combo.id}
           onToggle={() => setExpanded((e) => (e === combo.id ? null : combo.id))}
@@ -80,6 +84,7 @@ export function CombosTab({ combos, ingredients, platforms, onUpsert, onRemove }
 function ComboCard({
   combo,
   ingredients,
+  recipes,
   platforms,
   expanded,
   onToggle,
@@ -88,13 +93,17 @@ function ComboCard({
 }: {
   combo: Combo;
   ingredients: Ingredient[];
+  recipes: Recipe[];
   platforms: Platforms;
   expanded: boolean;
   onToggle: () => void;
   onChange: (c: Combo) => void;
   onRemove: () => void;
 }) {
-  const cost = useMemo(() => comboCost(combo, ingredients), [combo, ingredients]);
+  const cost = useMemo(
+    () => comboCost(combo, ingredients, recipes),
+    [combo, ingredients, recipes],
+  );
 
   const platformRows = [
     { key: "food99" as const, label: "99Food", fees: platforms.food99, price: combo.prices.food99 },
@@ -105,15 +114,26 @@ function ComboCard({
   function setName(name: string) {
     onChange({ ...combo, name });
   }
-  function addItem() {
+  function addIngredientItem() {
     const first = ingredients[0];
     if (!first) return;
     onChange({
       ...combo,
-      items: [...combo.items, { ingredientId: first.id, quantity: 0 }],
+      items: [...combo.items, { ingredientId: first.id, quantity: 0, kind: "ingredient" }],
     });
   }
-  function updateItem(idx: number, patch: Partial<{ ingredientId: string; quantity: number }>) {
+  function addRecipeItem() {
+    const first = recipes[0];
+    if (!first) return;
+    onChange({
+      ...combo,
+      items: [...combo.items, { ingredientId: first.id, quantity: 0, kind: "recipe" }],
+    });
+  }
+  function updateItem(
+    idx: number,
+    patch: Partial<{ ingredientId: string; quantity: number; kind: "ingredient" | "recipe" }>,
+  ) {
     const items = combo.items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
     onChange({ ...combo, items });
   }
@@ -155,48 +175,74 @@ function ComboCard({
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-xs">Ingredientes</Label>
-              <Button size="sm" variant="ghost" onClick={addItem} disabled={ingredients.length === 0}>
-                <Plus className="w-4 h-4 mr-1" /> Adicionar
-              </Button>
+            <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+              <Label className="text-xs">Itens do combinado</Label>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={addIngredientItem} disabled={ingredients.length === 0}>
+                  <Plus className="w-4 h-4 mr-1" /> Ingrediente
+                </Button>
+                <Button size="sm" variant="ghost" onClick={addRecipeItem} disabled={recipes.length === 0}>
+                  <Plus className="w-4 h-4 mr-1" /> Receita
+                </Button>
+              </div>
             </div>
-            {ingredients.length === 0 && (
-              <p className="text-xs text-muted-foreground">Cadastre ingredientes primeiro na aba Ingredientes.</p>
+            {ingredients.length === 0 && recipes.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Cadastre ingredientes ou receitas antes de montar o combinado.
+              </p>
             )}
             <div className="space-y-2">
               {combo.items.map((it, idx) => {
-                const ing = ingredients.find((i) => i.id === it.ingredientId);
-                const lineCost = ing ? effectivePricePerUnit(ing) * it.quantity : 0;
+                const isRecipe = it.kind === "recipe";
+                const list = isRecipe ? recipes : ingredients;
+                const found = list.find((x) => x.id === it.ingredientId);
+                let lineCost = 0;
+                let unitLabel = "";
+                if (isRecipe && found) {
+                  const r = found as Recipe;
+                  lineCost = recipeUnitCost(r, ingredients) * it.quantity;
+                  unitLabel = r.yieldLabel || "un";
+                } else if (!isRecipe && found) {
+                  const ing = found as Ingredient;
+                  lineCost = effectivePricePerUnit(ing) * it.quantity;
+                  unitLabel = ing.unit;
+                }
                 return (
-                  <div key={idx} className="grid gap-2 grid-cols-[1fr_90px_auto_auto] items-center">
-                    <Select
-                      value={it.ingredientId}
-                      onValueChange={(v) => updateItem(idx, { ingredientId: v })}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ingredients.map((i) => (
-                          <SelectItem key={i.id} value={i.id}>
-                            {i.name} ({i.unit})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      inputMode="decimal"
-                      value={it.quantity || ""}
-                      onChange={(e) =>
-                        updateItem(idx, { quantity: parseFloat(e.target.value.replace(",", ".")) || 0 })
-                      }
-                      placeholder="qtd"
-                    />
-                    <span className="text-xs text-muted-foreground min-w-[70px] text-right">
-                      {formatBRL(lineCost)}
-                    </span>
-                    <Button size="icon" variant="ghost" onClick={() => removeItem(idx)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                  <div key={idx} className="space-y-1">
+                    <div className="grid gap-2 grid-cols-[1fr_90px_auto_auto] items-center">
+                      <Select
+                        value={it.ingredientId}
+                        onValueChange={(v) => updateItem(idx, { ingredientId: v })}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {list.map((x) => (
+                            <SelectItem key={x.id} value={x.id}>
+                              {isRecipe
+                                ? `${x.name} (receita)`
+                                : `${(x as Ingredient).name} (${(x as Ingredient).unit})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        inputMode="decimal"
+                        value={it.quantity || ""}
+                        onChange={(e) =>
+                          updateItem(idx, { quantity: parseFloat(e.target.value.replace(",", ".")) || 0 })
+                        }
+                        placeholder={unitLabel || "qtd"}
+                      />
+                      <span className="text-xs text-muted-foreground min-w-[70px] text-right">
+                        {formatBRL(lineCost)}
+                      </span>
+                      <Button size="icon" variant="ghost" onClick={() => removeItem(idx)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground pl-1">
+                      {isRecipe ? "receita" : "ingrediente"} {unitLabel && `· qtd em ${unitLabel}`}
+                    </div>
                   </div>
                 );
               })}
