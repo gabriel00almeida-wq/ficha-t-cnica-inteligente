@@ -167,7 +167,7 @@ function ComboCard({
             <div className="space-y-2">
               {combo.items.map((it, idx) => {
                 const ing = ingredients.find((i) => i.id === it.ingredientId);
-                const lineCost = ing ? ing.pricePerUnit * it.quantity : 0;
+                const lineCost = ing ? effectivePricePerUnit(ing) * it.quantity : 0;
                 return (
                   <div key={idx} className="grid gap-2 grid-cols-[1fr_90px_auto_auto] items-center">
                     <Select
