@@ -171,6 +171,18 @@ function ComboCard({
         onClick={onToggle}
         className="w-full flex items-center gap-3 p-4 text-left hover:bg-secondary/40 transition-colors"
       >
+        {combo.imageUrl ? (
+          <img
+            src={combo.imageUrl}
+            alt={combo.name}
+            className="w-14 h-14 rounded-md object-cover flex-shrink-0 bg-muted"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-14 h-14 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+            <ImageIcon className="w-5 h-5 text-muted-foreground" />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="font-display text-lg truncate">{combo.name}</div>
           <div className="text-xs text-muted-foreground">
@@ -193,6 +205,19 @@ function ComboCard({
               </Button>
             </div>
           </div>
+
+          <div>
+            <Label className="text-xs">Foto (URL)</Label>
+            <Input
+              value={combo.imageUrl ?? ""}
+              onChange={(e) => onChange({ ...combo, imageUrl: e.target.value || undefined })}
+              placeholder="https://..."
+            />
+            {combo.description && (
+              <p className="text-xs text-muted-foreground mt-2 italic">{combo.description}</p>
+            )}
+          </div>
+
 
           <div>
             <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
