@@ -83,7 +83,7 @@ function Index() {
             </TabsTrigger>
             <TabsTrigger value="combos" className="flex-col gap-1 py-2 text-[11px]">
               <ChefHat className="w-4 h-4" />
-              <span>Combinados</span>
+              <span>Cardápio</span>
             </TabsTrigger>
             <TabsTrigger value="ranking" className="flex-col gap-1 py-2 text-[11px]">
               <TrendingUp className="w-4 h-4" />
