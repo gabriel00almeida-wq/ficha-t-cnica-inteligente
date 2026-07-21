@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, Package, Scissors, X } from "lucide-react";
+import { Trash2, Plus, Package, Scissors, X, Pencil } from "lucide-react";
 import {
   type Ingredient,
   type Unit,
