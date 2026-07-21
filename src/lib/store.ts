@@ -73,9 +73,9 @@ const defaultState: AppState = {
   recipes: [],
   combos: [],
   platforms: {
-    food99: { feePercent: 18, fixedFee: 0 },
-    ifood: { feePercent: 23, fixedFee: 0 },
-    anotai: { feePercent: 5, fixedFee: 0 },
+    food99: { feePercent: 18, fixedFee: 0, avgDeliveryCost: 0, promoValue: 0, promoType: "percent" },
+    ifood: { feePercent: 23, fixedFee: 0, avgDeliveryCost: 0, promoValue: 0, promoType: "percent" },
+    anotai: { feePercent: 5, fixedFee: 0, avgDeliveryCost: 0, promoValue: 0, promoType: "percent" },
   },
 };
 
