@@ -7,7 +7,8 @@ import { RecipesTab } from "@/components/ficha/RecipesTab";
 import { CombosTab } from "@/components/ficha/CombosTab";
 import { PlatformsTab } from "@/components/ficha/PlatformsTab";
 import { ScannerTab } from "@/components/ficha/ScannerTab";
-import { Package, ChefHat, Store, ScanLine, BookOpen } from "lucide-react";
+import { RankingTab } from "@/components/ficha/RankingTab";
+import { Package, ChefHat, Store, ScanLine, BookOpen, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
