@@ -66,6 +66,7 @@ export function RecipesTab({ recipes, ingredients, onUpsert, onRemove }: Props) 
           key={r.id}
           recipe={r}
           ingredients={ingredients}
+          allRecipes={recipes}
           expanded={expanded === r.id}
           onToggle={() => setExpanded((e) => (e === r.id ? null : r.id))}
           onChange={onUpsert}
@@ -79,6 +80,7 @@ export function RecipesTab({ recipes, ingredients, onUpsert, onRemove }: Props) 
 function RecipeCard({
   recipe,
   ingredients,
+  allRecipes,
   expanded,
   onToggle,
   onChange,
@@ -86,6 +88,7 @@ function RecipeCard({
 }: {
   recipe: Recipe;
   ingredients: Ingredient[];
+  allRecipes: Recipe[];
   expanded: boolean;
   onToggle: () => void;
   onChange: (r: Recipe) => void;
