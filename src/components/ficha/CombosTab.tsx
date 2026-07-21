@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronUp, ImageIcon, Download } from "lucide-react";
 import {
   type Combo,
   type Ingredient,
@@ -23,6 +23,7 @@ import {
   formatBRL,
   uid,
 } from "@/lib/store";
+import { buildItadakimasuCombos } from "@/lib/itadakimasu-menu";
 
 type Props = {
   combos: Combo[];
@@ -47,20 +48,38 @@ export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, o
     setExpanded(c.id);
   }
 
+  function importItadakimasu() {
+    const existing = new Set(combos.map((c) => c.name.toLowerCase().trim()));
+    const seeds = buildItadakimasuCombos().filter(
+      (c) => !existing.has(c.name.toLowerCase().trim()),
+    );
+    if (seeds.length === 0) {
+      alert("Todos os combinados do cardápio Itadakimasu já foram importados.");
+      return;
+    }
+    seeds.forEach((c) => onUpsert(c));
+    alert(`${seeds.length} combinado(s) importado(s) do Itadakimasu com preço da Anota AI e foto.`);
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground">
           {combos.length} combinado{combos.length === 1 ? "" : "s"}
         </p>
-        <Button onClick={addNew}>
-          <Plus className="w-4 h-4 mr-1" /> Novo combinado
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={importItadakimasu}>
+            <Download className="w-4 h-4 mr-1" /> Importar Itadakimasu
+          </Button>
+          <Button onClick={addNew}>
+            <Plus className="w-4 h-4 mr-1" /> Novo
+          </Button>
+        </div>
       </div>
 
       {combos.length === 0 && (
         <Card className="card-paper p-8 text-center text-muted-foreground">
-          Nenhum combinado cadastrado. Clique em "Novo combinado".
+          Nenhum combinado cadastrado. Clique em "Novo" ou "Importar Itadakimasu".
         </Card>
       )}
 
@@ -80,6 +99,7 @@ export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, o
     </div>
   );
 }
+
 
 function ComboCard({
   combo,
@@ -151,6 +171,18 @@ function ComboCard({
         onClick={onToggle}
         className="w-full flex items-center gap-3 p-4 text-left hover:bg-secondary/40 transition-colors"
       >
+        {combo.imageUrl ? (
+          <img
+            src={combo.imageUrl}
+            alt={combo.name}
+            className="w-14 h-14 rounded-md object-cover flex-shrink-0 bg-muted"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-14 h-14 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+            <ImageIcon className="w-5 h-5 text-muted-foreground" />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="font-display text-lg truncate">{combo.name}</div>
           <div className="text-xs text-muted-foreground">
@@ -173,6 +205,19 @@ function ComboCard({
               </Button>
             </div>
           </div>
+
+          <div>
+            <Label className="text-xs">Foto (URL)</Label>
+            <Input
+              value={combo.imageUrl ?? ""}
+              onChange={(e) => onChange({ ...combo, imageUrl: e.target.value || undefined })}
+              placeholder="https://..."
+            />
+            {combo.description && (
+              <p className="text-xs text-muted-foreground mt-2 italic">{combo.description}</p>
+            )}
+          </div>
+
 
           <div>
             <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">

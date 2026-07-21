@@ -40,9 +40,15 @@ function parseNum(v: string) {
 }
 
 export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
+  const [mode, setMode] = useState<"direct" | "package">("direct");
+
   const [name, setName] = useState("");
   const [unit, setUnit] = useState<Unit>("g");
   const [price, setPrice] = useState("");
+
+  // Package mode
+  const [pkgPrice, setPkgPrice] = useState("");
+  const [pkgUnits, setPkgUnits] = useState("");
 
   const [hasYield, setHasYield] = useState(false);
   const [yieldMode, setYieldMode] = useState<YieldMode>("percent");
@@ -64,19 +70,36 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
     return undefined;
   }
 
+  const packagePerUnit = (() => {
+    const p = parseNum(pkgPrice);
+    const u = parseNum(pkgUnits);
+    return p > 0 && u > 0 ? p / u : 0;
+  })();
+
   function add() {
-    const p = parseNum(price);
-    if (!name.trim() || !isFinite(p) || p <= 0) return;
+    if (!name.trim()) return;
+    let finalUnit: Unit = unit;
+    let finalPrice = 0;
+    if (mode === "package") {
+      if (packagePerUnit <= 0) return;
+      finalUnit = "un";
+      finalPrice = packagePerUnit;
+    } else {
+      finalPrice = parseNum(price);
+      if (!isFinite(finalPrice) || finalPrice <= 0) return;
+    }
     onUpsert({
       id: uid(),
       name: name.trim(),
-      unit,
-      pricePerUnit: p,
+      unit: finalUnit,
+      pricePerUnit: finalPrice,
       lastUpdated: new Date().toISOString(),
       yieldPercent: computeYield(),
     });
     setName("");
     setPrice("");
+    setPkgPrice("");
+    setPkgUnits("");
     setHasYield(false);
     setYieldPct("");
     setGross("");
@@ -87,43 +110,120 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
     <div className="space-y-6">
       <Card className="card-paper p-5">
         <h3 className="font-display text-lg mb-4">Adicionar ingrediente</h3>
-        <div className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_auto]">
-          <div>
-            <Label className="text-xs">Nome</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="ex: salmão bruto"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Unidade base</Label>
-            <Select value={unit} onValueChange={(v) => setUnit(v as Unit)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="g">grama (g)</SelectItem>
-                <SelectItem value="kg">quilo (kg)</SelectItem>
-                <SelectItem value="ml">ml</SelectItem>
-                <SelectItem value="L">litro (L)</SelectItem>
-                <SelectItem value="un">unidade</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Preço {UNIT_LABEL[unit]}</Label>
-            <Input
-              inputMode="decimal"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="0,00"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button onClick={add} className="w-full sm:w-auto">
-              <Plus className="w-4 h-4 mr-1" /> Adicionar
-            </Button>
-          </div>
+
+        <div className="flex gap-2 text-xs mb-4">
+          <button
+            type="button"
+            onClick={() => setMode("direct")}
+            className={`px-3 py-1.5 rounded-md border ${
+              mode === "direct"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-border"
+            }`}
+          >
+            Preço direto
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("package")}
+            className={`px-3 py-1.5 rounded-md border ${
+              mode === "package"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-border"
+            }`}
+          >
+            Pacote → unidades
+          </button>
         </div>
+
+        {mode === "direct" ? (
+          <div className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_auto]">
+            <div>
+              <Label className="text-xs">Nome</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="ex: salmão bruto"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Unidade base</Label>
+              <Select value={unit} onValueChange={(v) => setUnit(v as Unit)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="g">grama (g)</SelectItem>
+                  <SelectItem value="kg">quilo (kg)</SelectItem>
+                  <SelectItem value="ml">ml</SelectItem>
+                  <SelectItem value="L">litro (L)</SelectItem>
+                  <SelectItem value="un">unidade</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Preço {UNIT_LABEL[unit]}</Label>
+              <Input
+                inputMode="decimal"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={add} className="w-full sm:w-auto">
+                <Plus className="w-4 h-4 mr-1" /> Adicionar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Nome do produto</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="ex: camarão eviscerado, alga nori"
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <Label className="text-xs">Preço do pacote (R$)</Label>
+                <Input
+                  inputMode="decimal"
+                  value={pkgPrice}
+                  onChange={(e) => setPkgPrice(e.target.value)}
+                  placeholder="0,00"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Rende quantas unidades?</Label>
+                <Input
+                  inputMode="decimal"
+                  value={pkgUnits}
+                  onChange={(e) => setPkgUnits(e.target.value)}
+                  placeholder="ex: 210, 100"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={add} className="w-full">
+                  <Plus className="w-4 h-4 mr-1" /> Adicionar
+                </Button>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground bg-secondary/40 rounded-md p-2 space-y-1">
+              <div>
+                💡 Ex: pacote 3kg de camarão que rende 70/kg → informe <b>210</b> unidades.
+              </div>
+              <div>
+                💡 Ex: 50 folhas de alga cortadas ao meio → informe <b>100</b> unidades.
+              </div>
+              {packagePerUnit > 0 && (
+                <div className="pt-1 border-t mt-1 text-foreground">
+                  Custo por unidade: <b>{formatBRL(packagePerUnit)}</b>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 pt-4 border-t">
           <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
@@ -214,6 +314,7 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
           )}
         </div>
       </Card>
+
 
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">

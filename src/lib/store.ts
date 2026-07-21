@@ -43,6 +43,8 @@ export type Combo = {
     ifood: number;
     anotai: number;
   };
+  imageUrl?: string;
+  description?: string;
 };
 
 export type PlatformFees = {
