@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronUp, ImageIcon, Download } from "lucide-react";
 import {
   type Combo,
   type Ingredient,
@@ -23,6 +23,7 @@ import {
   formatBRL,
   uid,
 } from "@/lib/store";
+import { buildItadakimasuCombos } from "@/lib/itadakimasu-menu";
 
 type Props = {
   combos: Combo[];
@@ -47,20 +48,38 @@ export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, o
     setExpanded(c.id);
   }
 
+  function importItadakimasu() {
+    const existing = new Set(combos.map((c) => c.name.toLowerCase().trim()));
+    const seeds = buildItadakimasuCombos().filter(
+      (c) => !existing.has(c.name.toLowerCase().trim()),
+    );
+    if (seeds.length === 0) {
+      alert("Todos os combinados do cardápio Itadakimasu já foram importados.");
+      return;
+    }
+    seeds.forEach((c) => onUpsert(c));
+    alert(`${seeds.length} combinado(s) importado(s) do Itadakimasu com preço da Anota AI e foto.`);
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground">
           {combos.length} combinado{combos.length === 1 ? "" : "s"}
         </p>
-        <Button onClick={addNew}>
-          <Plus className="w-4 h-4 mr-1" /> Novo combinado
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={importItadakimasu}>
+            <Download className="w-4 h-4 mr-1" /> Importar Itadakimasu
+          </Button>
+          <Button onClick={addNew}>
+            <Plus className="w-4 h-4 mr-1" /> Novo
+          </Button>
+        </div>
       </div>
 
       {combos.length === 0 && (
         <Card className="card-paper p-8 text-center text-muted-foreground">
-          Nenhum combinado cadastrado. Clique em "Novo combinado".
+          Nenhum combinado cadastrado. Clique em "Novo" ou "Importar Itadakimasu".
         </Card>
       )}
 
@@ -80,6 +99,7 @@ export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, o
     </div>
   );
 }
+
 
 function ComboCard({
   combo,
