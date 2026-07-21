@@ -57,6 +57,7 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
   const [net, setNet] = useState("");
 
   const [editingYieldId, setEditingYieldId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   function computeYield(): number | undefined {
     if (!hasYield) return undefined;
