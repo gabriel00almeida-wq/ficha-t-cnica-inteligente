@@ -124,6 +124,14 @@ function Index() {
                 onRemove={removeCombo}
               />
             </TabsContent>
+            <TabsContent value="ranking">
+              <RankingTab
+                combos={state.combos}
+                ingredients={state.ingredients}
+                recipes={state.recipes}
+                platforms={state.platforms}
+              />
+            </TabsContent>
             <TabsContent value="platforms">
               <PlatformsTab platforms={state.platforms} onChange={setPlatforms} />
             </TabsContent>
