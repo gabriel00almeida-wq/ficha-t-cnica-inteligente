@@ -187,41 +187,83 @@ function RecipeCard({
                 Cadastre ingredientes primeiro na aba Ingredientes.
               </p>
             )}
-            <div className="space-y-2">
+            <div className="space-y-3">
               {recipe.items.map((it, idx) => {
                 const ing = ingredients.find((i) => i.id === it.ingredientId);
                 const lineCost = ing ? effectivePricePerUnit(ing) * it.quantity : 0;
+                const unit = ing?.unit ?? "";
+                const isUnit = unit === "un";
+                const quickValues: number[] = isUnit ? [0.5, 1, 2] : [10, 25, 50, 100];
                 return (
-                  <div key={idx} className="grid gap-2 grid-cols-[1fr_90px_auto_auto] items-center">
-                    <Select
-                      value={it.ingredientId}
-                      onValueChange={(v) => updateItem(idx, { ingredientId: v })}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ingredients.map((i) => (
-                          <SelectItem key={i.id} value={i.id}>
-                            {i.name} ({i.unit})
-                          </SelectItem>
+                  <div key={idx} className="rounded-lg border bg-background p-3 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <Label className="text-[10px] uppercase text-muted-foreground">Ingrediente</Label>
+                        <Select
+                          value={it.ingredientId}
+                          onValueChange={(v) => updateItem(idx, { ingredientId: v })}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {ingredients.map((i) => (
+                              <SelectItem key={i.id} value={i.id}>
+                                {i.name} ({i.unit})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => removeItem(idx)}
+                        className="text-destructive mt-5 shrink-0"
+                        aria-label="Remover ingrediente"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <div>
+                      <Label className="text-[10px] uppercase text-muted-foreground">
+                        Quantidade{unit && <> (em {unit})</>}
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            inputMode="decimal"
+                            value={it.quantity || ""}
+                            onChange={(e) =>
+                              updateItem(idx, {
+                                quantity: parseFloat(e.target.value.replace(",", ".")) || 0,
+                              })
+                            }
+                            placeholder={isUnit ? "ex: 0,5" : "ex: 25"}
+                            className="pr-10"
+                          />
+                          {unit && (
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                              {unit}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-sm font-medium min-w-[70px] text-right">
+                          {formatBRL(lineCost)}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {quickValues.map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => updateItem(idx, { quantity: v })}
+                            className="text-[11px] px-2 py-0.5 rounded border bg-secondary/40 hover:bg-secondary transition-colors"
+                          >
+                            {isUnit && v === 0.5 ? "½ un" : `${v} ${unit}`}
+                          </button>
                         ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      inputMode="decimal"
-                      value={it.quantity || ""}
-                      onChange={(e) =>
-                        updateItem(idx, {
-                          quantity: parseFloat(e.target.value.replace(",", ".")) || 0,
-                        })
-                      }
-                      placeholder="qtd"
-                    />
-                    <span className="text-xs text-muted-foreground min-w-[70px] text-right">
-                      {formatBRL(lineCost)}
-                    </span>
-                    <Button size="icon" variant="ghost" onClick={() => removeItem(idx)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
