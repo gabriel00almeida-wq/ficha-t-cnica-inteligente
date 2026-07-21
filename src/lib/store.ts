@@ -48,6 +48,9 @@ export type Combo = {
 export type PlatformFees = {
   feePercent: number;
   fixedFee: number;
+  avgDeliveryCost: number;
+  promoValue: number;
+  promoType: "percent" | "brl";
 };
 
 export type Platforms = {
