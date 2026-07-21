@@ -197,11 +197,16 @@ function RecipeCard({
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-xs">Ingredientes</Label>
-              <Button size="sm" variant="ghost" onClick={addItem} disabled={ingredients.length === 0}>
-                <Plus className="w-4 h-4 mr-1" /> Adicionar
-              </Button>
+            <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+              <Label className="text-xs">Itens da receita</Label>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={addItem} disabled={ingredients.length === 0}>
+                  <Plus className="w-4 h-4 mr-1" /> Ingrediente
+                </Button>
+                <Button size="sm" variant="ghost" onClick={addRecipeItem} disabled={availableRecipes.length === 0}>
+                  <Plus className="w-4 h-4 mr-1" /> Receita
+                </Button>
+              </div>
             </div>
             {ingredients.length === 0 && (
               <p className="text-xs text-muted-foreground">
@@ -210,36 +215,58 @@ function RecipeCard({
             )}
             <div className="space-y-3">
               {recipe.items.map((it, idx) => {
-                const ing = ingredients.find((i) => i.id === it.ingredientId);
-                const lineCost = ing ? effectivePricePerUnit(ing) * it.quantity : 0;
-                const unit = ing?.unit ?? "";
-                const isUnit = unit === "un";
-                const quickValues: number[] = isUnit ? [0.5, 1, 2] : [10, 25, 50, 100];
+                const isRecipeItem = it.kind === "recipe";
+                const subRecipe = isRecipeItem ? availableRecipes.find((r) => r.id === it.ingredientId) : undefined;
+                const ing = !isRecipeItem ? ingredients.find((i) => i.id === it.ingredientId) : undefined;
+                const lineCost = isRecipeItem
+                  ? subRecipe ? recipeUnitCost(subRecipe, ingredients, allRecipes) * it.quantity : 0
+                  : ing ? effectivePricePerUnit(ing) * it.quantity : 0;
+                const unit = isRecipeItem ? (subRecipe?.yieldLabel || "un") : (ing?.unit ?? "");
+                const isUnit = !isRecipeItem && unit === "un";
+                const quickValues: number[] = isRecipeItem ? [0.5, 1, 2] : (isUnit ? [0.5, 1, 2] : [10, 25, 50, 100]);
                 return (
                   <div key={idx} className="rounded-lg border bg-background p-3 space-y-2">
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0">
-                        <Label className="text-[10px] uppercase text-muted-foreground">Ingrediente</Label>
-                        <Select
-                          value={it.ingredientId}
-                          onValueChange={(v) => updateItem(idx, { ingredientId: v })}
-                        >
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {ingredients.map((i) => (
-                              <SelectItem key={i.id} value={i.id}>
-                                {i.name} ({i.unit})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Label className="text-[10px] uppercase text-muted-foreground">
+                          {isRecipeItem ? "Receita" : "Ingrediente"}
+                        </Label>
+                        {isRecipeItem ? (
+                          <Select
+                            value={it.ingredientId}
+                            onValueChange={(v) => updateItem(idx, { ingredientId: v })}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {availableRecipes.map((r) => (
+                                <SelectItem key={r.id} value={r.id}>
+                                  {r.name} ({r.yieldLabel || "un"})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Select
+                            value={it.ingredientId}
+                            onValueChange={(v) => updateItem(idx, { ingredientId: v })}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {ingredients.map((i) => (
+                                <SelectItem key={i.id} value={i.id}>
+                                  {i.name} ({i.unit})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                       <Button
                         size="icon"
                         variant="outline"
                         onClick={() => removeItem(idx)}
                         className="text-destructive mt-5 shrink-0"
-                        aria-label="Remover ingrediente"
+                        aria-label="Remover item"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -259,7 +286,7 @@ function RecipeCard({
                                 quantity: parseFloat(e.target.value.replace(",", ".")) || 0,
                               })
                             }
-                            placeholder={isUnit ? "ex: 0,5" : "ex: 25"}
+                            placeholder={isUnit || isRecipeItem ? "ex: 0,5" : "ex: 25"}
                             className="pr-10"
                           />
                           {unit && (
@@ -280,7 +307,7 @@ function RecipeCard({
                             onClick={() => updateItem(idx, { quantity: v })}
                             className="text-[11px] px-2 py-0.5 rounded border bg-secondary/40 hover:bg-secondary transition-colors"
                           >
-                            {isUnit && v === 0.5 ? "½ un" : `${v} ${unit}`}
+                            {(isUnit || isRecipeItem) && v === 0.5 ? `½ ${unit}` : `${v} ${unit}`}
                           </button>
                         ))}
                       </div>
@@ -290,6 +317,7 @@ function RecipeCard({
               })}
             </div>
           </div>
+
 
           <div className="border-t pt-3 space-y-1 text-sm">
             <div className="flex justify-between">
