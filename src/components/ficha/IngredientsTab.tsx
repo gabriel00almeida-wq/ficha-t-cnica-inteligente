@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, Package, Scissors, X } from "lucide-react";
+import { Trash2, Plus, Package, Scissors, X, Pencil } from "lucide-react";
 import {
   type Ingredient,
   type Unit,
@@ -57,6 +57,7 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
   const [net, setNet] = useState("");
 
   const [editingYieldId, setEditingYieldId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   function computeYield(): number | undefined {
     if (!hasYield) return undefined;
@@ -362,6 +363,17 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                   size="icon"
                   variant="ghost"
                   onClick={() =>
+                    setEditingId(editingId === ing.id ? null : ing.id)
+                  }
+                  aria-label="Editar ingrediente"
+                  title="Editar ingrediente"
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() =>
                     setEditingYieldId(editingYieldId === ing.id ? null : ing.id)
                   }
                   aria-label="Editar rendimento"
@@ -378,6 +390,17 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
+
+              {editingId === ing.id && (
+                <IngredientEditor
+                  ingredient={ing}
+                  onSave={(updated) => {
+                    onUpsert({ ...updated, lastUpdated: new Date().toISOString() });
+                    setEditingId(null);
+                  }}
+                  onCancel={() => setEditingId(null)}
+                />
+              )}
 
               {editingYieldId === ing.id && (
                 <YieldEditor
@@ -489,6 +512,121 @@ function YieldEditor({
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+function IngredientEditor({
+  ingredient,
+  onSave,
+  onCancel,
+}: {
+  ingredient: Ingredient;
+  onSave: (updated: Ingredient) => void;
+  onCancel: () => void;
+}) {
+  const [mode, setMode] = useState<"direct" | "package">("direct");
+  const [name, setName] = useState(ingredient.name);
+  const [unit, setUnit] = useState<Unit>(ingredient.unit);
+  const [price, setPrice] = useState(String(ingredient.pricePerUnit).replace(".", ","));
+  const [pkgPrice, setPkgPrice] = useState("");
+  const [pkgUnits, setPkgUnits] = useState("");
+
+  const packagePerUnit = (() => {
+    const p = parseNum(pkgPrice);
+    const u = parseNum(pkgUnits);
+    return p > 0 && u > 0 ? p / u : 0;
+  })();
+
+  function save() {
+    if (!name.trim()) return;
+    let finalUnit: Unit = unit;
+    let finalPrice = 0;
+    if (mode === "package") {
+      if (packagePerUnit <= 0) return;
+      finalUnit = "un";
+      finalPrice = packagePerUnit;
+    } else {
+      finalPrice = parseNum(price);
+      if (!isFinite(finalPrice) || finalPrice <= 0) return;
+    }
+    onSave({ ...ingredient, name: name.trim(), unit: finalUnit, pricePerUnit: finalPrice });
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t space-y-3 bg-secondary/20 -mx-3 -mb-3 px-3 pb-3 rounded-b-lg">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => setMode("direct")}
+            className={`px-2.5 py-1 rounded-md border ${
+              mode === "direct" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"
+            }`}
+          >
+            Preço direto
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("package")}
+            className={`px-2.5 py-1 rounded-md border ${
+              mode === "package" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"
+            }`}
+          >
+            Pacote → unidades
+          </button>
+        </div>
+        <Button size="icon" variant="ghost" onClick={onCancel} className="h-7 w-7">
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+
+      <div>
+        <Label className="text-xs">Nome</Label>
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+
+      {mode === "direct" ? (
+        <div className="grid gap-2 grid-cols-2">
+          <div>
+            <Label className="text-xs">Unidade base</Label>
+            <Select value={unit} onValueChange={(v) => setUnit(v as Unit)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="g">grama (g)</SelectItem>
+                <SelectItem value="kg">quilo (kg)</SelectItem>
+                <SelectItem value="ml">ml</SelectItem>
+                <SelectItem value="L">litro (L)</SelectItem>
+                <SelectItem value="un">unidade</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Preço {UNIT_LABEL[unit]}</Label>
+            <Input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0,00" />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="grid gap-2 grid-cols-2">
+            <div>
+              <Label className="text-xs">Preço do pacote (R$)</Label>
+              <Input inputMode="decimal" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} placeholder="0,00" />
+            </div>
+            <div>
+              <Label className="text-xs">Rende quantas unidades?</Label>
+              <Input inputMode="decimal" value={pkgUnits} onChange={(e) => setPkgUnits(e.target.value)} placeholder="ex: 100" />
+            </div>
+          </div>
+          {packagePerUnit > 0 && (
+            <div className="text-xs text-muted-foreground">
+              Custo por unidade: <b className="text-foreground">{formatBRL(packagePerUnit)}</b>
+            </div>
+          )}
+        </div>
+      )}
+
+      <Button size="sm" onClick={save} className="w-full">Salvar alterações</Button>
     </div>
   );
 }
