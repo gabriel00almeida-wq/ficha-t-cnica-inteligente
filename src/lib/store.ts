@@ -246,9 +246,14 @@ export function platformResult(
   fees: PlatformFees,
 ) {
   const feeAmount = (price * fees.feePercent) / 100 + fees.fixedFee;
-  const profit = price - feeAmount - cost;
+  const promoAmount =
+    fees.promoType === "percent"
+      ? (price * (fees.promoValue || 0)) / 100
+      : fees.promoValue || 0;
+  const deliveryAmount = fees.avgDeliveryCost || 0;
+  const profit = price - feeAmount - promoAmount - deliveryAmount - cost;
   const margin = price > 0 ? (profit / price) * 100 : 0;
-  return { feeAmount, profit, margin };
+  return { feeAmount, promoAmount, deliveryAmount, profit, margin };
 }
 
 export function formatBRL(n: number): string {
