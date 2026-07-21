@@ -84,12 +84,20 @@ function load(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState;
-    const parsed = JSON.parse(raw) as Partial<AppState>;
+    const parsedPlatforms = (parsed.platforms ?? {}) as Partial<Platforms>;
+    const mergePlatform = (k: keyof Platforms): PlatformFees => ({
+      ...defaultState.platforms[k],
+      ...(parsedPlatforms[k] ?? {}),
+    });
     return {
       ingredients: parsed.ingredients ?? [],
       recipes: parsed.recipes ?? [],
       combos: parsed.combos ?? [],
-      platforms: { ...defaultState.platforms, ...(parsed.platforms ?? {}) },
+      platforms: {
+        food99: mergePlatform("food99"),
+        ifood: mergePlatform("ifood"),
+        anotai: mergePlatform("anotai"),
+      },
     };
   } catch {
     return defaultState;
