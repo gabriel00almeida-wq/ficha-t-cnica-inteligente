@@ -84,6 +84,7 @@ function load(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState;
+    const parsed = JSON.parse(raw) as Partial<AppState>;
     const parsedPlatforms = (parsed.platforms ?? {}) as Partial<Platforms>;
     const mergePlatform = (k: keyof Platforms): PlatformFees => ({
       ...defaultState.platforms[k],
