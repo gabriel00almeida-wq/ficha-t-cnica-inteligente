@@ -68,7 +68,7 @@ function Index() {
 
       <main className="max-w-4xl mx-auto px-4 py-6">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-5 h-auto">
+          <TabsList className="grid w-full grid-cols-6 h-auto">
             <TabsTrigger value="scanner" className="flex-col gap-1 py-2 text-[11px]">
               <ScanLine className="w-4 h-4" />
               <span>Scanner</span>
@@ -84,6 +84,10 @@ function Index() {
             <TabsTrigger value="combos" className="flex-col gap-1 py-2 text-[11px]">
               <ChefHat className="w-4 h-4" />
               <span>Combinados</span>
+            </TabsTrigger>
+            <TabsTrigger value="ranking" className="flex-col gap-1 py-2 text-[11px]">
+              <TrendingUp className="w-4 h-4" />
+              <span>Ranking</span>
             </TabsTrigger>
             <TabsTrigger value="platforms" className="flex-col gap-1 py-2 text-[11px]">
               <Store className="w-4 h-4" />
