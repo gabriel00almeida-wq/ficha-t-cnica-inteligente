@@ -252,7 +252,7 @@ export function comboCost(
     if (it.kind === "recipe") {
       const r = recipes.find((x) => x.id === it.ingredientId);
       if (!r) return sum;
-      return sum + recipeUnitCost(r, ingredients) * it.quantity;
+      return sum + recipeUnitCost(r, ingredients, recipes) * it.quantity;
     }
     const ing = ingredients.find((i) => i.id === it.ingredientId);
     if (!ing) return sum;
