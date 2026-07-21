@@ -91,8 +91,18 @@ function RecipeCard({
   onChange: (r: Recipe) => void;
   onRemove: () => void;
 }) {
-  const total = useMemo(() => recipeCost(recipe, ingredients), [recipe, ingredients]);
-  const perUnit = useMemo(() => recipeUnitCost(recipe, ingredients), [recipe, ingredients]);
+  const total = useMemo(
+    () => recipeCost(recipe, ingredients, allRecipes),
+    [recipe, ingredients, allRecipes],
+  );
+  const perUnit = useMemo(
+    () => recipeUnitCost(recipe, ingredients, allRecipes),
+    [recipe, ingredients, allRecipes],
+  );
+  const availableRecipes = useMemo(
+    () => allRecipes.filter((r) => r.id !== recipe.id),
+    [allRecipes, recipe.id],
+  );
 
   function setName(name: string) {
     onChange({ ...recipe, name });
@@ -109,10 +119,18 @@ function RecipeCard({
     if (!first) return;
     onChange({
       ...recipe,
-      items: [...recipe.items, { ingredientId: first.id, quantity: 0 }],
+      items: [...recipe.items, { ingredientId: first.id, quantity: 0, kind: "ingredient" }],
     });
   }
-  function updateItem(idx: number, patch: Partial<{ ingredientId: string; quantity: number }>) {
+  function addRecipeItem() {
+    const first = availableRecipes[0];
+    if (!first) return;
+    onChange({
+      ...recipe,
+      items: [...recipe.items, { ingredientId: first.id, quantity: 0, kind: "recipe" }],
+    });
+  }
+  function updateItem(idx: number, patch: Partial<{ ingredientId: string; quantity: number; kind: "ingredient" | "recipe" }>) {
     const items = recipe.items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
     onChange({ ...recipe, items });
   }
