@@ -363,6 +363,17 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                   size="icon"
                   variant="ghost"
                   onClick={() =>
+                    setEditingId(editingId === ing.id ? null : ing.id)
+                  }
+                  aria-label="Editar ingrediente"
+                  title="Editar ingrediente"
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() =>
                     setEditingYieldId(editingYieldId === ing.id ? null : ing.id)
                   }
                   aria-label="Editar rendimento"
@@ -379,6 +390,17 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
+
+              {editingId === ing.id && (
+                <IngredientEditor
+                  ingredient={ing}
+                  onSave={(updated) => {
+                    onUpsert({ ...updated, lastUpdated: new Date().toISOString() });
+                    setEditingId(null);
+                  }}
+                  onCancel={() => setEditingId(null)}
+                />
+              )}
 
               {editingYieldId === ing.id && (
                 <YieldEditor
