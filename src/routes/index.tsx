@@ -7,7 +7,8 @@ import { RecipesTab } from "@/components/ficha/RecipesTab";
 import { CombosTab } from "@/components/ficha/CombosTab";
 import { PlatformsTab } from "@/components/ficha/PlatformsTab";
 import { ScannerTab } from "@/components/ficha/ScannerTab";
-import { Package, ChefHat, Store, ScanLine, BookOpen } from "lucide-react";
+import { RankingTab } from "@/components/ficha/RankingTab";
+import { Package, ChefHat, Store, ScanLine, BookOpen, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -67,7 +68,7 @@ function Index() {
 
       <main className="max-w-4xl mx-auto px-4 py-6">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-5 h-auto">
+          <TabsList className="grid w-full grid-cols-6 h-auto">
             <TabsTrigger value="scanner" className="flex-col gap-1 py-2 text-[11px]">
               <ScanLine className="w-4 h-4" />
               <span>Scanner</span>
@@ -83,6 +84,10 @@ function Index() {
             <TabsTrigger value="combos" className="flex-col gap-1 py-2 text-[11px]">
               <ChefHat className="w-4 h-4" />
               <span>Combinados</span>
+            </TabsTrigger>
+            <TabsTrigger value="ranking" className="flex-col gap-1 py-2 text-[11px]">
+              <TrendingUp className="w-4 h-4" />
+              <span>Ranking</span>
             </TabsTrigger>
             <TabsTrigger value="platforms" className="flex-col gap-1 py-2 text-[11px]">
               <Store className="w-4 h-4" />
@@ -117,6 +122,14 @@ function Index() {
                 platforms={state.platforms}
                 onUpsert={upsertCombo}
                 onRemove={removeCombo}
+              />
+            </TabsContent>
+            <TabsContent value="ranking">
+              <RankingTab
+                combos={state.combos}
+                ingredients={state.ingredients}
+                recipes={state.recipes}
+                platforms={state.platforms}
               />
             </TabsContent>
             <TabsContent value="platforms">

@@ -48,6 +48,9 @@ export type Combo = {
 export type PlatformFees = {
   feePercent: number;
   fixedFee: number;
+  avgDeliveryCost: number;
+  promoValue: number;
+  promoType: "percent" | "brl";
 };
 
 export type Platforms = {
@@ -70,9 +73,9 @@ const defaultState: AppState = {
   recipes: [],
   combos: [],
   platforms: {
-    food99: { feePercent: 18, fixedFee: 0 },
-    ifood: { feePercent: 23, fixedFee: 0 },
-    anotai: { feePercent: 5, fixedFee: 0 },
+    food99: { feePercent: 18, fixedFee: 0, avgDeliveryCost: 0, promoValue: 0, promoType: "percent" },
+    ifood: { feePercent: 23, fixedFee: 0, avgDeliveryCost: 0, promoValue: 0, promoType: "percent" },
+    anotai: { feePercent: 5, fixedFee: 0, avgDeliveryCost: 0, promoValue: 0, promoType: "percent" },
   },
 };
 
@@ -82,11 +85,20 @@ function load(): AppState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState;
     const parsed = JSON.parse(raw) as Partial<AppState>;
+    const parsedPlatforms = (parsed.platforms ?? {}) as Partial<Platforms>;
+    const mergePlatform = (k: keyof Platforms): PlatformFees => ({
+      ...defaultState.platforms[k],
+      ...(parsedPlatforms[k] ?? {}),
+    });
     return {
       ingredients: parsed.ingredients ?? [],
       recipes: parsed.recipes ?? [],
       combos: parsed.combos ?? [],
-      platforms: { ...defaultState.platforms, ...(parsed.platforms ?? {}) },
+      platforms: {
+        food99: mergePlatform("food99"),
+        ifood: mergePlatform("ifood"),
+        anotai: mergePlatform("anotai"),
+      },
     };
   } catch {
     return defaultState;
@@ -234,9 +246,14 @@ export function platformResult(
   fees: PlatformFees,
 ) {
   const feeAmount = (price * fees.feePercent) / 100 + fees.fixedFee;
-  const profit = price - feeAmount - cost;
+  const promoAmount =
+    fees.promoType === "percent"
+      ? (price * (fees.promoValue || 0)) / 100
+      : fees.promoValue || 0;
+  const deliveryAmount = fees.avgDeliveryCost || 0;
+  const profit = price - feeAmount - promoAmount - deliveryAmount - cost;
   const margin = price > 0 ? (profit / price) * 100 : 0;
-  return { feeAmount, profit, margin };
+  return { feeAmount, promoAmount, deliveryAmount, profit, margin };
 }
 
 export function formatBRL(n: number): string {
