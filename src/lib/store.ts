@@ -212,16 +212,34 @@ export function effectivePricePerUnit(ing: Ingredient): number {
   return ing.pricePerUnit / (y / 100);
 }
 
-export function recipeCost(recipe: Recipe, ingredients: Ingredient[]): number {
+export function recipeCost(
+  recipe: Recipe,
+  ingredients: Ingredient[],
+  recipes: Recipe[] = [],
+  visiting: Set<string> = new Set(),
+): number {
+  if (visiting.has(recipe.id)) return 0;
+  const nextVisiting = new Set(visiting);
+  nextVisiting.add(recipe.id);
   return recipe.items.reduce((sum, it) => {
+    if (it.kind === "recipe") {
+      const r = recipes.find((x) => x.id === it.ingredientId);
+      if (!r) return sum;
+      return sum + recipeUnitCost(r, ingredients, recipes, nextVisiting) * it.quantity;
+    }
     const ing = ingredients.find((i) => i.id === it.ingredientId);
     if (!ing) return sum;
     return sum + effectivePricePerUnit(ing) * it.quantity;
   }, 0);
 }
 
-export function recipeUnitCost(recipe: Recipe, ingredients: Ingredient[]): number {
-  const total = recipeCost(recipe, ingredients);
+export function recipeUnitCost(
+  recipe: Recipe,
+  ingredients: Ingredient[],
+  recipes: Recipe[] = [],
+  visiting: Set<string> = new Set(),
+): number {
+  const total = recipeCost(recipe, ingredients, recipes, visiting);
   return recipe.yieldUnits > 0 ? total / recipe.yieldUnits : 0;
 }
 
@@ -234,7 +252,7 @@ export function comboCost(
     if (it.kind === "recipe") {
       const r = recipes.find((x) => x.id === it.ingredientId);
       if (!r) return sum;
-      return sum + recipeUnitCost(r, ingredients) * it.quantity;
+      return sum + recipeUnitCost(r, ingredients, recipes) * it.quantity;
     }
     const ing = ingredients.find((i) => i.id === it.ingredientId);
     if (!ing) return sum;
