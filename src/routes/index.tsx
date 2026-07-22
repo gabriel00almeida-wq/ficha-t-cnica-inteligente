@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
 import { IngredientsTab } from "@/components/ficha/IngredientsTab";
 import { RecipesTab } from "@/components/ficha/RecipesTab";
@@ -8,7 +9,8 @@ import { CombosTab } from "@/components/ficha/CombosTab";
 import { PlatformsTab } from "@/components/ficha/PlatformsTab";
 import { ScannerTab } from "@/components/ficha/ScannerTab";
 import { RankingTab } from "@/components/ficha/RankingTab";
-import { Package, ChefHat, Store, ScanLine, BookOpen, TrendingUp } from "lucide-react";
+import { Package, ChefHat, Store, ScanLine, BookOpen, TrendingUp, Moon, Sun } from "lucide-react";
+import logoAsset from "@/assets/itadaki-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -45,6 +47,18 @@ function Index() {
     setPlatforms,
   } = useAppStore();
   const [tab, setTab] = useState("scanner");
+  const [dark, setDark] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const stored = localStorage.getItem("ficha-theme");
+    if (stored) return stored === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("ficha-theme", dark ? "dark" : "light");
+  }, [dark]);
 
   if (!hydrated) {
     return <div className="min-h-screen bg-background" />;
@@ -54,17 +68,29 @@ function Index() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/70 bg-card/50 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 py-6 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-display text-xl">
-            寿
-          </div>
-          <div>
+          <img
+            src={logoAsset.url}
+            alt="Itadaki Sushi"
+            className="w-11 h-11 rounded-full object-cover bg-ink shrink-0"
+          />
+          <div className="flex-1 min-w-0">
             <h1 className="font-display text-2xl leading-tight">Ficha Técnica</h1>
             <p className="text-xs text-muted-foreground">
               Custos e precificação inteligente para seus combinados
             </p>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDark((d) => !d)}
+            aria-label={dark ? "Ativar tema claro" : "Ativar tema escuro"}
+            className="shrink-0"
+          >
+            {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </Button>
         </div>
       </header>
+
 
       <main className="max-w-4xl mx-auto px-4 py-6">
         <Tabs value={tab} onValueChange={setTab}>
