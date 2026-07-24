@@ -10,7 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, Package, Scissors, X, Pencil } from "lucide-react";
+import { Trash2, Plus, Package, Scissors, X, Pencil, LineChart as LineChartIcon, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 import {
   type Ingredient,
   type Unit,
