@@ -2,6 +2,15 @@ import { useEffect, useState, useCallback } from "react";
 
 export type Unit = "g" | "kg" | "ml" | "L" | "un";
 
+export type PriceSource = "manual" | "scanner";
+
+export type PricePoint = {
+  date: string; // ISO
+  pricePerUnit: number;
+  source: PriceSource;
+  note?: string;
+};
+
 export type Ingredient = {
   id: string;
   name: string;
@@ -14,7 +23,34 @@ export type Ingredient = {
    * Se ausente ou 100, considera-se que não há perda.
    */
   yieldPercent?: number;
+  /** Histórico de preços (últimos ~50 pontos, mais recente ao final). */
+  priceHistory?: PricePoint[];
 };
+
+/**
+ * Retorna o ingrediente com um novo ponto de histórico anexado, se o preço mudou.
+ * Se o preço for igual ao último ponto, não adiciona nada.
+ */
+export function withPriceUpdate(
+  ing: Ingredient,
+  newPrice: number,
+  source: PriceSource,
+  note?: string,
+): Ingredient {
+  const history = ing.priceHistory ?? [];
+  const last = history[history.length - 1];
+  if (last && Math.abs(last.pricePerUnit - newPrice) < 1e-6) {
+    return { ...ing, pricePerUnit: newPrice };
+  }
+  const next: PricePoint = {
+    date: new Date().toISOString(),
+    pricePerUnit: newPrice,
+    source,
+    note,
+  };
+  const trimmed = [...history, next].slice(-50);
+  return { ...ing, pricePerUnit: newPrice, priceHistory: trimmed };
+}
 
 export type ComboItem = {
   ingredientId: string;
