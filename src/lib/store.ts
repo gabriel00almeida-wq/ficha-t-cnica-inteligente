@@ -2,6 +2,15 @@ import { useEffect, useState, useCallback } from "react";
 
 export type Unit = "g" | "kg" | "ml" | "L" | "un";
 
+export type PriceSource = "manual" | "scanner";
+
+export type PricePoint = {
+  date: string; // ISO
+  pricePerUnit: number;
+  source: PriceSource;
+  note?: string;
+};
+
 export type Ingredient = {
   id: string;
   name: string;
@@ -14,7 +23,34 @@ export type Ingredient = {
    * Se ausente ou 100, considera-se que não há perda.
    */
   yieldPercent?: number;
+  /** Histórico de preços (últimos ~50 pontos, mais recente ao final). */
+  priceHistory?: PricePoint[];
 };
+
+/**
+ * Retorna o ingrediente com um novo ponto de histórico anexado, se o preço mudou.
+ * Se o preço for igual ao último ponto, não adiciona nada.
+ */
+export function withPriceUpdate(
+  ing: Ingredient,
+  newPrice: number,
+  source: PriceSource,
+  note?: string,
+): Ingredient {
+  const history = ing.priceHistory ?? [];
+  const last = history[history.length - 1];
+  if (last && Math.abs(last.pricePerUnit - newPrice) < 1e-6) {
+    return { ...ing, pricePerUnit: newPrice };
+  }
+  const next: PricePoint = {
+    date: new Date().toISOString(),
+    pricePerUnit: newPrice,
+    source,
+    note,
+  };
+  const trimmed = [...history, next].slice(-50);
+  return { ...ing, pricePerUnit: newPrice, priceHistory: trimmed };
+}
 
 export type ComboItem = {
   ingredientId: string;
@@ -129,8 +165,41 @@ export function useAppStore() {
     setState((s) => {
       const idx = s.ingredients.findIndex((i) => i.id === ing.id);
       const next = [...s.ingredients];
-      if (idx >= 0) next[idx] = ing;
-      else next.push(ing);
+      let finalIng = ing;
+      if (idx >= 0) {
+        const prev = s.ingredients[idx];
+        const priceChanged = Math.abs(prev.pricePerUnit - ing.pricePerUnit) > 1e-6;
+        const incomingHistory = ing.priceHistory ?? prev.priceHistory ?? [];
+        const lastIncoming = incomingHistory[incomingHistory.length - 1];
+        const alreadyLogged =
+          !!lastIncoming && Math.abs(lastIncoming.pricePerUnit - ing.pricePerUnit) < 1e-6;
+        if (priceChanged && !alreadyLogged) {
+          // caller didn't pre-append (manual edit) → log as "manual"
+          finalIng = withPriceUpdate(
+            { ...ing, priceHistory: prev.priceHistory },
+            ing.pricePerUnit,
+            "manual",
+          );
+        } else {
+          finalIng = { ...ing, priceHistory: incomingHistory };
+        }
+        next[idx] = finalIng;
+      } else {
+        // primeiro cadastro: semear histórico com o preço inicial
+        const seeded = ing.priceHistory?.length
+          ? ing
+          : {
+              ...ing,
+              priceHistory: [
+                {
+                  date: ing.lastUpdated || new Date().toISOString(),
+                  pricePerUnit: ing.pricePerUnit,
+                  source: "manual" as PriceSource,
+                },
+              ],
+            };
+        next.push(seeded);
+      }
       return { ...s, ingredients: next };
     });
   }, []);

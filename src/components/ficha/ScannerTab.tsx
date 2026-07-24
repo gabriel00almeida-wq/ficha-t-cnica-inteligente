@@ -11,13 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Camera, Image as ImageIcon, Sparkles, Check, X } from "lucide-react";
+import { Loader2, Camera, Image as ImageIcon, Sparkles, Check, X, TrendingUp, TrendingDown } from "lucide-react";
 import { extractInvoice, type OcrItem } from "@/lib/ocr.functions";
 import {
   type Ingredient,
   type Unit,
   formatBRL,
   uid,
+  withPriceUpdate,
 } from "@/lib/store";
 
 type Props = {
@@ -25,10 +26,14 @@ type Props = {
   onUpsert: (i: Ingredient) => void;
 };
 
+type RowStatus = "needs_confirm" | "confirmed_link" | "new" | "skip";
+
 type Row = OcrItem & {
-  linkedTo: string | "__new__" | "__skip__";
+  linkedTo: string; // ingredient id, or "" when new
   baseUnit: Unit;
   basePricePerUnit: number;
+  status: RowStatus;
+  suggestedId?: string; // id of the auto-detected match, if any
 };
 
 // Convert receipt unit to base unit per-unit price
@@ -40,6 +45,46 @@ function normalize(item: OcrItem): { baseUnit: Unit; basePricePerUnit: number } 
   if (u === "l" || u === "lt") return { baseUnit: "ml", basePricePerUnit: perUnitOrig / 1000 };
   if (u === "ml") return { baseUnit: "ml", basePricePerUnit: perUnitOrig };
   return { baseUnit: "un", basePricePerUnit: perUnitOrig };
+}
+
+// Normaliza para matching: minúsculas, sem acentos, sem pontuação
+function norm(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const STOP = new Set(["de", "do", "da", "com", "sem", "e", "para", "kg", "g", "un", "ml", "l"]);
+
+function tokens(s: string): string[] {
+  return norm(s).split(" ").filter((t) => t.length > 1 && !STOP.has(t));
+}
+
+/** Retorna ingrediente sugerido para um item da NF, ou undefined. */
+function findMatch(itemName: string, ingredients: Ingredient[]): Ingredient | undefined {
+  const nItem = norm(itemName);
+  if (!nItem) return undefined;
+  const tItem = new Set(tokens(itemName));
+
+  let best: { ing: Ingredient; score: number } | undefined;
+  for (const ing of ingredients) {
+    const nIng = norm(ing.name);
+    if (!nIng) continue;
+    let score = 0;
+    if (nItem === nIng) score = 1000;
+    else if (nItem.includes(nIng) || nIng.includes(nItem)) score = 500;
+    else {
+      const tIng = tokens(ing.name);
+      const shared = tIng.filter((t) => tItem.has(t)).length;
+      if (shared > 0) score = shared * 100 + (shared === tIng.length ? 50 : 0);
+    }
+    if (score > 0 && (!best || score > best.score)) best = { ing, score };
+  }
+  return best?.score && best.score >= 100 ? best.ing : undefined;
 }
 
 export function ScannerTab({ ingredients, onUpsert }: Props) {
@@ -70,16 +115,15 @@ export function ScannerTab({ ingredients, onUpsert }: Props) {
       setMeta({ storeName: result.storeName, date: result.date });
       setRows(
         result.items.map((it) => {
-          const norm = normalize(it);
-          // Try to guess match by fuzzy name
-          const match = ingredients.find(
-            (ing) => ing.name.toLowerCase() === it.name.toLowerCase(),
-          );
+          const nrm = normalize(it);
+          const match = findMatch(it.name, ingredients);
           return {
             ...it,
-            ...norm,
-            linkedTo: match ? match.id : "__new__",
-          };
+            ...nrm,
+            linkedTo: match?.id ?? "",
+            suggestedId: match?.id,
+            status: match ? "needs_confirm" : "new",
+          } as Row;
         }),
       );
     } catch (e) {
@@ -93,28 +137,40 @@ export function ScannerTab({ ingredients, onUpsert }: Props) {
     setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
 
+  const pending = rows.filter((r) => r.status === "needs_confirm").length;
+
   function applyAll() {
+    if (pending > 0) {
+      setError(`Confirme os ${pending} item(ns) pendente(s) antes de aplicar.`);
+      return;
+    }
+    setError(null);
+    const note = [meta?.storeName, meta?.date].filter(Boolean).join(" · ") || "Scanner NF";
     let applied = 0;
     rows.forEach((row) => {
-      if (row.linkedTo === "__skip__") return;
-      if (row.linkedTo === "__new__") {
-        onUpsert({
+      if (row.status === "skip") return;
+      if (row.status === "new" || !row.linkedTo) {
+        const seed: Ingredient = {
           id: uid(),
           name: row.name,
           unit: row.baseUnit,
-          pricePerUnit: row.basePricePerUnit,
+          pricePerUnit: 0, // será sobrescrito por withPriceUpdate
           lastUpdated: new Date().toISOString(),
-        });
+          priceHistory: [],
+        };
+        const withHist = withPriceUpdate(seed, row.basePricePerUnit, "scanner", note);
+        onUpsert(withHist);
         applied++;
-      } else {
+      } else if (row.status === "confirmed_link") {
         const existing = ingredients.find((i) => i.id === row.linkedTo);
         if (existing) {
-          onUpsert({
-            ...existing,
-            unit: row.baseUnit,
-            pricePerUnit: row.basePricePerUnit,
-            lastUpdated: new Date().toISOString(),
-          });
+          const updated = withPriceUpdate(
+            { ...existing, unit: row.baseUnit, lastUpdated: new Date().toISOString() },
+            row.basePricePerUnit,
+            "scanner",
+            note,
+          );
+          onUpsert(updated);
           applied++;
         }
       }
@@ -123,7 +179,7 @@ export function ScannerTab({ ingredients, onUpsert }: Props) {
     setImagePreview(null);
     setMeta(null);
     if (applied > 0) {
-      alert(`${applied} ingrediente(s) atualizado(s). Os custos dos combinados foram recalculados automaticamente.`);
+      alert(`${applied} ingrediente(s) atualizado(s). Os custos dos combinados foram recalculados e a variação foi registrada no histórico.`);
     }
   }
 
@@ -137,7 +193,7 @@ export function ScannerTab({ ingredients, onUpsert }: Props) {
           <div className="flex-1">
             <h3 className="font-display text-lg">Scanner de nota fiscal</h3>
             <p className="text-sm text-muted-foreground">
-              Envie uma foto da NF. A IA extrai cada item e atualiza os preços dos seus ingredientes — e os custos de todos os combinados que os usam são recalculados na hora.
+              Envie uma foto da NF. A IA extrai cada item e, ao confirmar, atualiza o preço dos ingredientes vinculados — o custo dos combinados é recalculado automaticamente e a variação fica salva no histórico.
             </p>
           </div>
         </div>
@@ -225,93 +281,256 @@ export function ScannerTab({ ingredients, onUpsert }: Props) {
 
       {rows.length > 0 && (
         <Card className="card-paper p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-display text-base">Revisar itens extraídos</h4>
-            <Button onClick={applyAll}>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h4 className="font-display text-base">Revisar itens extraídos</h4>
+              {pending > 0 && (
+                <div className="text-xs text-amber-600 dark:text-amber-400">
+                  {pending} item(ns) aguardando confirmação
+                </div>
+              )}
+            </div>
+            <Button onClick={applyAll} disabled={pending > 0}>
               <Check className="w-4 h-4 mr-1" /> Aplicar tudo
             </Button>
           </div>
           <div className="space-y-2">
-            {rows.map((row, idx) => (
-              <div key={idx} className="rounded-md border p-3 bg-background">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div>
-                    <div className="font-medium">{row.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {row.quantity} {row.unit} · {formatBRL(row.totalPrice)}
+            {rows.map((row, idx) => {
+              const suggested = row.suggestedId
+                ? ingredients.find((i) => i.id === row.suggestedId)
+                : undefined;
+              return (
+                <div key={idx} className="rounded-md border p-3 bg-background">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{row.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {row.quantity} {row.unit} · {formatBRL(row.totalPrice)}
+                      </div>
                     </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => updateRow(idx, { status: "skip" })}
+                      className={row.status === "skip" ? "text-destructive" : ""}
+                      title="Ignorar este item"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => updateRow(idx, { linkedTo: "__skip__" })}
-                    className={row.linkedTo === "__skip__" ? "text-destructive" : ""}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
 
-                {row.linkedTo !== "__skip__" ? (
-                  <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr]">
-                    <div>
-                      <Label className="text-[10px] uppercase">Vincular</Label>
-                      <Select
-                        value={row.linkedTo}
-                        onValueChange={(v) => updateRow(idx, { linkedTo: v })}
-                      >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__new__">➕ Criar novo</SelectItem>
-                          {ingredients.map((i) => (
-                            <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase">Unidade base</Label>
-                      <Select
-                        value={row.baseUnit}
-                        onValueChange={(v) => updateRow(idx, { baseUnit: v as Unit })}
-                      >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="g">g</SelectItem>
-                          <SelectItem value="kg">kg</SelectItem>
-                          <SelectItem value="ml">ml</SelectItem>
-                          <SelectItem value="L">L</SelectItem>
-                          <SelectItem value="un">un</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase">Preço por {row.baseUnit}</Label>
-                      <Input
-                        inputMode="decimal"
-                        value={row.basePricePerUnit || ""}
-                        onChange={(e) =>
+                  {row.status === "skip" ? (
+                    <div className="text-xs text-muted-foreground italic flex items-center gap-2">
+                      Ignorado
+                      <button
+                        className="underline"
+                        onClick={() =>
                           updateRow(idx, {
-                            basePricePerUnit: parseFloat(e.target.value.replace(",", ".")) || 0,
+                            status: row.suggestedId ? "needs_confirm" : "new",
+                            linkedTo: row.suggestedId ?? "",
                           })
                         }
-                      />
+                      >
+                        desfazer
+                      </button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground italic flex items-center gap-2">
-                    Ignorado
-                    <button
-                      className="underline"
-                      onClick={() => updateRow(idx, { linkedTo: "__new__" })}
-                    >
-                      desfazer
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+                  ) : row.status === "needs_confirm" && suggested ? (
+                    <ConfirmMatchBlock
+                      row={row}
+                      suggested={suggested}
+                      onYes={() =>
+                        updateRow(idx, { status: "confirmed_link", linkedTo: suggested.id })
+                      }
+                      onNo={() =>
+                        updateRow(idx, { status: "new", linkedTo: "", suggestedId: undefined })
+                      }
+                      onEditPrice={(v) => updateRow(idx, { basePricePerUnit: v })}
+                      onEditUnit={(u) => updateRow(idx, { baseUnit: u })}
+                    />
+                  ) : (
+                    <LinkedEditor
+                      row={row}
+                      ingredients={ingredients}
+                      onLinkChange={(v) => {
+                        if (v === "__new__") {
+                          updateRow(idx, { status: "new", linkedTo: "" });
+                        } else {
+                          updateRow(idx, { status: "confirmed_link", linkedTo: v });
+                        }
+                      }}
+                      onUnit={(u) => updateRow(idx, { baseUnit: u })}
+                      onPrice={(v) => updateRow(idx, { basePricePerUnit: v })}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Card>
+      )}
+    </div>
+  );
+}
+
+function priceDeltaBadge(oldP: number, newP: number) {
+  if (!oldP || oldP <= 0) return null;
+  const diff = newP - oldP;
+  const pct = (diff / oldP) * 100;
+  const up = diff > 0;
+  const flat = Math.abs(pct) < 0.5;
+  const color = flat
+    ? "text-muted-foreground"
+    : up
+      ? "text-destructive"
+      : "text-emerald-600 dark:text-emerald-400";
+  const Icon = up ? TrendingUp : TrendingDown;
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold ${color}`}>
+      {!flat && <Icon className="w-3 h-3" />}
+      {pct > 0 ? "+" : ""}
+      {pct.toFixed(1)}%
+    </span>
+  );
+}
+
+function ConfirmMatchBlock({
+  row,
+  suggested,
+  onYes,
+  onNo,
+  onEditPrice,
+  onEditUnit,
+}: {
+  row: Row;
+  suggested: Ingredient;
+  onYes: () => void;
+  onNo: () => void;
+  onEditPrice: (v: number) => void;
+  onEditUnit: (u: Unit) => void;
+}) {
+  return (
+    <div className="space-y-3 bg-primary/5 border border-primary/20 rounded-md p-3">
+      <div className="text-sm">
+        Esse item corresponde a{" "}
+        <b>{suggested.name}</b> do seu estoque?
+      </div>
+      <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>
+          Preço atual: <b className="text-foreground">{formatBRL(suggested.pricePerUnit)}</b>/{suggested.unit}
+        </span>
+        <span>→</span>
+        <span>
+          Novo: <b className="text-foreground">{formatBRL(row.basePricePerUnit)}</b>/{row.baseUnit}
+        </span>
+        {priceDeltaBadge(suggested.pricePerUnit, row.basePricePerUnit)}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={onYes} className="flex-1 min-w-[140px]">
+          <Check className="w-4 h-4 mr-1" /> Sim, atualizar preço
+        </Button>
+        <Button size="sm" variant="outline" onClick={onNo} className="flex-1 min-w-[120px]">
+          Não, é outro item
+        </Button>
+      </div>
+      <details className="text-xs">
+        <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+          Ajustar unidade ou preço antes de aplicar
+        </summary>
+        <div className="grid gap-2 sm:grid-cols-2 mt-2">
+          <div>
+            <Label className="text-[10px] uppercase">Unidade base</Label>
+            <Select value={row.baseUnit} onValueChange={(v) => onEditUnit(v as Unit)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="g">g</SelectItem>
+                <SelectItem value="kg">kg</SelectItem>
+                <SelectItem value="ml">ml</SelectItem>
+                <SelectItem value="L">L</SelectItem>
+                <SelectItem value="un">un</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-[10px] uppercase">Preço por {row.baseUnit}</Label>
+            <Input
+              inputMode="decimal"
+              value={row.basePricePerUnit || ""}
+              onChange={(e) =>
+                onEditPrice(parseFloat(e.target.value.replace(",", ".")) || 0)
+              }
+            />
+          </div>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function LinkedEditor({
+  row,
+  ingredients,
+  onLinkChange,
+  onUnit,
+  onPrice,
+}: {
+  row: Row;
+  ingredients: Ingredient[];
+  onLinkChange: (v: string) => void;
+  onUnit: (u: Unit) => void;
+  onPrice: (v: number) => void;
+}) {
+  const linked = row.linkedTo
+    ? ingredients.find((i) => i.id === row.linkedTo)
+    : undefined;
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr]">
+        <div>
+          <Label className="text-[10px] uppercase">Vincular</Label>
+          <Select
+            value={row.linkedTo || "__new__"}
+            onValueChange={onLinkChange}
+          >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__new__">➕ Criar novo</SelectItem>
+              {ingredients.map((i) => (
+                <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase">Unidade base</Label>
+          <Select value={row.baseUnit} onValueChange={(v) => onUnit(v as Unit)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="g">g</SelectItem>
+              <SelectItem value="kg">kg</SelectItem>
+              <SelectItem value="ml">ml</SelectItem>
+              <SelectItem value="L">L</SelectItem>
+              <SelectItem value="un">un</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase">Preço por {row.baseUnit}</Label>
+          <Input
+            inputMode="decimal"
+            value={row.basePricePerUnit || ""}
+            onChange={(e) =>
+              onPrice(parseFloat(e.target.value.replace(",", ".")) || 0)
+            }
+          />
+        </div>
+      </div>
+      {linked && (
+        <div className="text-xs text-muted-foreground flex items-center gap-2">
+          <span>
+            Atual: {formatBRL(linked.pricePerUnit)}/{linked.unit} → novo {formatBRL(row.basePricePerUnit)}/{row.baseUnit}
+          </span>
+          {priceDeltaBadge(linked.pricePerUnit, row.basePricePerUnit)}
+        </div>
       )}
     </div>
   );

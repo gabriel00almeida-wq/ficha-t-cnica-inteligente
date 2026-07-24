@@ -10,7 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, Package, Scissors, X, Pencil } from "lucide-react";
+import { Trash2, Plus, Package, Scissors, X, Pencil, LineChart as LineChartIcon, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 import {
   type Ingredient,
   type Unit,
@@ -58,6 +67,7 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
 
   const [editingYieldId, setEditingYieldId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [historyId, setHistoryId] = useState<string | null>(null);
 
   function computeYield(): number | undefined {
     if (!hasYield) return undefined;
@@ -330,6 +340,12 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
         {ingredients.map((ing) => {
           const effective = effectivePricePerUnit(ing);
           const hasLoss = ing.yieldPercent && ing.yieldPercent > 0 && ing.yieldPercent < 100;
+          const history = ing.priceHistory ?? [];
+          const prev = history.length >= 2 ? history[history.length - 2] : undefined;
+          const trend = prev
+            ? ((ing.pricePerUnit - prev.pricePerUnit) / prev.pricePerUnit) * 100
+            : 0;
+          const showTrend = !!prev && Math.abs(trend) >= 0.5;
           return (
             <Card key={ing.id} className="card-paper p-3">
               <div className="flex items-center gap-3">
@@ -339,6 +355,20 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                     {hasLoss && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/25 text-accent-foreground font-semibold">
                         {ing.yieldPercent!.toFixed(0)}% rend.
+                      </span>
+                    )}
+                    {showTrend && (
+                      <span
+                        className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${
+                          trend > 0
+                            ? "text-destructive"
+                            : "text-emerald-600 dark:text-emerald-400"
+                        }`}
+                        title={`Preço anterior: ${formatBRL(prev!.pricePerUnit)}`}
+                      >
+                        {trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                        {trend > 0 ? "+" : ""}
+                        {trend.toFixed(1)}%
                       </span>
                     )}
                   </div>
@@ -359,6 +389,18 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                     </div>
                   )}
                 </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() =>
+                    setHistoryId(historyId === ing.id ? null : ing.id)
+                  }
+                  aria-label="Ver histórico de preços"
+                  title="Histórico de preços"
+                  disabled={history.length < 1}
+                >
+                  <LineChartIcon className="w-4 h-4" />
+                </Button>
                 <Button
                   size="icon"
                   variant="ghost"
@@ -390,6 +432,8 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
+
+              {historyId === ing.id && <PriceHistoryPanel ingredient={ing} />}
 
               {editingId === ing.id && (
                 <IngredientEditor
@@ -627,6 +671,124 @@ function IngredientEditor({
       )}
 
       <Button size="sm" onClick={save} className="w-full">Salvar alterações</Button>
+    </div>
+  );
+}
+
+function PriceHistoryPanel({ ingredient }: { ingredient: Ingredient }) {
+  const history = ingredient.priceHistory ?? [];
+  if (history.length === 0) {
+    return (
+      <div className="mt-3 pt-3 border-t text-xs text-muted-foreground italic">
+        Nenhum histórico registrado ainda. As mudanças de preço a partir de agora ficarão salvas aqui.
+      </div>
+    );
+  }
+  const data = history.map((p) => ({
+    date: new Date(p.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+    price: Number(p.pricePerUnit.toFixed(4)),
+    source: p.source,
+    note: p.note,
+    fullDate: p.date,
+  }));
+  const min = Math.min(...history.map((p) => p.pricePerUnit));
+  const max = Math.max(...history.map((p) => p.pricePerUnit));
+  const first = history[0].pricePerUnit;
+  const last = history[history.length - 1].pricePerUnit;
+  const totalPct = first > 0 ? ((last - first) / first) * 100 : 0;
+  const recent = [...history].reverse().slice(0, 10);
+
+  return (
+    <div className="mt-3 pt-3 border-t space-y-3 bg-secondary/20 -mx-3 -mb-3 px-3 pb-3 rounded-b-lg">
+      <div className="flex flex-wrap gap-3 text-xs">
+        <div>
+          <div className="text-muted-foreground">Mínimo</div>
+          <div className="font-semibold">{formatBRL(min)}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Máximo</div>
+          <div className="font-semibold">{formatBRL(max)}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Variação total</div>
+          <div
+            className={`font-semibold ${
+              totalPct > 0
+                ? "text-destructive"
+                : totalPct < 0
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : ""
+            }`}
+          >
+            {totalPct > 0 ? "+" : ""}
+            {totalPct.toFixed(1)}%
+          </div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Registros</div>
+          <div className="font-semibold">{history.length}</div>
+        </div>
+      </div>
+
+      {history.length >= 2 ? (
+        <div className="h-40 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+              <YAxis
+                tick={{ fontSize: 10 }}
+                tickFormatter={(v) => formatBRL(Number(v)).replace("R$", "")}
+                width={60}
+              />
+              <Tooltip
+                formatter={(v: number) => [formatBRL(v), "Preço"]}
+                labelFormatter={(l) => `Data: ${l}`}
+              />
+              <Line
+                type="monotone"
+                dataKey="price"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground italic">
+          Só há 1 registro por enquanto — o gráfico aparece a partir de 2 atualizações de preço.
+        </div>
+      )}
+
+      <div className="space-y-1">
+        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          Últimas atualizações
+        </div>
+        {recent.map((p, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between text-xs py-1 border-b border-border/50 last:border-0"
+          >
+            <div>
+              <div>{new Date(p.date).toLocaleDateString("pt-BR")}</div>
+              {p.note && <div className="text-[10px] text-muted-foreground">{p.note}</div>}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">{formatBRL(p.pricePerUnit)}</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded ${
+                  p.source === "scanner"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {p.source === "scanner" ? "NF" : "manual"}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
