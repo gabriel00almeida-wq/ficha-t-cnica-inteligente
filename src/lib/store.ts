@@ -11,6 +11,17 @@ export type PricePoint = {
   note?: string;
 };
 
+export type IngredientCategory =
+  | "Proteínas"
+  | "Grãos"
+  | "Farináceos"
+  | "Vegetais & Frutas"
+  | "Molhos & Temperos"
+  | "Laticínios"
+  | "Bebidas"
+  | "Embalagens & Descartáveis"
+  | "Outros";
+
 export type Ingredient = {
   id: string;
   name: string;
@@ -25,7 +36,10 @@ export type Ingredient = {
   yieldPercent?: number;
   /** Histórico de preços (últimos ~50 pontos, mais recente ao final). */
   priceHistory?: PricePoint[];
+  /** Override manual de categoria. Se ausente, é detectada pelo nome. */
+  category?: IngredientCategory;
 };
+
 
 /**
  * Retorna o ingrediente com um novo ponto de histórico anexado, se o preço mudou.
