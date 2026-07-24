@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, ChevronDown, ChevronUp, ImageIcon, Download } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronUp, ImageIcon, Download, Copy } from "lucide-react";
 import {
   type Combo,
   type Ingredient,
