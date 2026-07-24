@@ -165,8 +165,41 @@ export function useAppStore() {
     setState((s) => {
       const idx = s.ingredients.findIndex((i) => i.id === ing.id);
       const next = [...s.ingredients];
-      if (idx >= 0) next[idx] = ing;
-      else next.push(ing);
+      let finalIng = ing;
+      if (idx >= 0) {
+        const prev = s.ingredients[idx];
+        const priceChanged = Math.abs(prev.pricePerUnit - ing.pricePerUnit) > 1e-6;
+        const incomingHistory = ing.priceHistory ?? prev.priceHistory ?? [];
+        const lastIncoming = incomingHistory[incomingHistory.length - 1];
+        const alreadyLogged =
+          !!lastIncoming && Math.abs(lastIncoming.pricePerUnit - ing.pricePerUnit) < 1e-6;
+        if (priceChanged && !alreadyLogged) {
+          // caller didn't pre-append (manual edit) → log as "manual"
+          finalIng = withPriceUpdate(
+            { ...ing, priceHistory: prev.priceHistory },
+            ing.pricePerUnit,
+            "manual",
+          );
+        } else {
+          finalIng = { ...ing, priceHistory: incomingHistory };
+        }
+        next[idx] = finalIng;
+      } else {
+        // primeiro cadastro: semear histórico com o preço inicial
+        const seeded = ing.priceHistory?.length
+          ? ing
+          : {
+              ...ing,
+              priceHistory: [
+                {
+                  date: ing.lastUpdated || new Date().toISOString(),
+                  pricePerUnit: ing.pricePerUnit,
+                  source: "manual" as PriceSource,
+                },
+              ],
+            };
+        next.push(seeded);
+      }
       return { ...s, ingredients: next };
     });
   }, []);
