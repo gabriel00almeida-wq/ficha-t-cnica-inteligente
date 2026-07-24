@@ -87,6 +87,7 @@ export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, o
         <ComboCard
           key={combo.id}
           combo={combo}
+          allCombos={combos}
           ingredients={ingredients}
           recipes={recipes}
           platforms={platforms}
