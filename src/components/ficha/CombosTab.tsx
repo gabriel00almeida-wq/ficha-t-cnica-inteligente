@@ -243,6 +243,26 @@ function ComboCard({
                 </Button>
               </div>
             </div>
+            {allCombos.filter((c) => c.id !== combo.id && c.items.length > 0).length > 0 && (
+              <div className="mb-3 flex items-center gap-2 flex-wrap">
+                <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Copiar itens de:</span>
+                <Select value="" onValueChange={copyItemsFrom}>
+                  <SelectTrigger className="h-8 text-xs w-auto min-w-[180px] flex-1">
+                    <SelectValue placeholder="Escolher prato..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allCombos
+                      .filter((c) => c.id !== combo.id && c.items.length > 0)
+                      .map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} ({c.items.length})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {ingredients.length === 0 && recipes.length === 0 && (
               <p className="text-xs text-muted-foreground">
                 Cadastre ingredientes ou receitas antes de montar o combinado.
