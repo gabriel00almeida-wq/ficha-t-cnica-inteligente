@@ -340,6 +340,12 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
         {ingredients.map((ing) => {
           const effective = effectivePricePerUnit(ing);
           const hasLoss = ing.yieldPercent && ing.yieldPercent > 0 && ing.yieldPercent < 100;
+          const history = ing.priceHistory ?? [];
+          const prev = history.length >= 2 ? history[history.length - 2] : undefined;
+          const trend = prev
+            ? ((ing.pricePerUnit - prev.pricePerUnit) / prev.pricePerUnit) * 100
+            : 0;
+          const showTrend = !!prev && Math.abs(trend) >= 0.5;
           return (
             <Card key={ing.id} className="card-paper p-3">
               <div className="flex items-center gap-3">
@@ -349,6 +355,20 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                     {hasLoss && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/25 text-accent-foreground font-semibold">
                         {ing.yieldPercent!.toFixed(0)}% rend.
+                      </span>
+                    )}
+                    {showTrend && (
+                      <span
+                        className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${
+                          trend > 0
+                            ? "text-destructive"
+                            : "text-emerald-600 dark:text-emerald-400"
+                        }`}
+                        title={`Preço anterior: ${formatBRL(prev!.pricePerUnit)}`}
+                      >
+                        {trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                        {trend > 0 ? "+" : ""}
+                        {trend.toFixed(1)}%
                       </span>
                     )}
                   </div>
@@ -369,6 +389,18 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                     </div>
                   )}
                 </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() =>
+                    setHistoryId(historyId === ing.id ? null : ing.id)
+                  }
+                  aria-label="Ver histórico de preços"
+                  title="Histórico de preços"
+                  disabled={history.length < 1}
+                >
+                  <LineChartIcon className="w-4 h-4" />
+                </Button>
                 <Button
                   size="icon"
                   variant="ghost"
@@ -400,6 +432,8 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
+
+              {historyId === ing.id && <PriceHistoryPanel ingredient={ing} />}
 
               {editingId === ing.id && (
                 <IngredientEditor
