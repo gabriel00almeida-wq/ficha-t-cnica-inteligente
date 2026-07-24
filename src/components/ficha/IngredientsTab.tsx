@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, Package, Scissors, X, Pencil, LineChart as LineChartIcon, TrendingUp, TrendingDown } from "lucide-react";
+import { Trash2, Plus, Package, Scissors, X, Pencil, LineChart as LineChartIcon, TrendingUp, TrendingDown, Tag } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -22,11 +22,13 @@ import {
 } from "recharts";
 import {
   type Ingredient,
+  type IngredientCategory,
   type Unit,
   formatBRL,
   uid,
   effectivePricePerUnit,
 } from "@/lib/store";
+
 
 type Props = {
   ingredients: Ingredient[];
@@ -417,7 +419,7 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
         {(() => {
           const grouped = new Map<Category, Ingredient[]>();
           for (const ing of ingredients) {
-            const cat = categorize(ing);
+            const cat = (ing.category as Category | undefined) ?? categorize(ing);
             if (!grouped.has(cat)) grouped.set(cat, []);
             grouped.get(cat)!.push(ing);
           }
@@ -472,6 +474,35 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Atualizado {new Date(ing.lastUpdated).toLocaleDateString("pt-BR")}
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <Tag className="w-3 h-3 text-muted-foreground shrink-0" />
+                    <Select
+                      value={ing.category ?? "__auto__"}
+                      onValueChange={(v) => {
+                        const nextCategory =
+                          v === "__auto__" ? undefined : (v as IngredientCategory);
+                        onUpsert({
+                          ...ing,
+                          category: nextCategory,
+                          lastUpdated: new Date().toISOString(),
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="h-7 text-[11px] px-2 py-0 w-auto min-w-0 gap-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__auto__">
+                          Automático{ing.category ? "" : ` (${categorize(ing)})`}
+                        </SelectItem>
+                        {CATEGORIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="text-right">
