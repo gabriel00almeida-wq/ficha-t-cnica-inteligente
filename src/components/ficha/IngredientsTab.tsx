@@ -414,7 +414,28 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
             Nenhum ingrediente ainda. Adicione manualmente acima ou use o Scanner de NF.
           </Card>
         )}
-        {ingredients.map((ing) => {
+        {(() => {
+          const grouped = new Map<Category, Ingredient[]>();
+          for (const ing of ingredients) {
+            const cat = categorize(ing);
+            if (!grouped.has(cat)) grouped.set(cat, []);
+            grouped.get(cat)!.push(ing);
+          }
+          for (const arr of grouped.values()) {
+            arr.sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+          }
+          return CATEGORY_ORDER.filter((c) => grouped.has(c)).map((cat) => (
+            <div key={cat} className="space-y-2">
+              <div className="flex items-center gap-2 pt-2">
+                <h4 className="font-display text-sm uppercase tracking-wide text-muted-foreground">
+                  {cat}
+                </h4>
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-[10px] text-muted-foreground">
+                  {grouped.get(cat)!.length}
+                </span>
+              </div>
+              {grouped.get(cat)!.map((ing) => {
           const effective = effectivePricePerUnit(ing);
           const hasLoss = ing.yieldPercent && ing.yieldPercent > 0 && ing.yieldPercent < 100;
           const history = ing.priceHistory ?? [];
