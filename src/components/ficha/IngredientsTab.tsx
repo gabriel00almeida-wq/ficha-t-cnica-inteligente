@@ -560,7 +560,10 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
               )}
             </Card>
           );
-        })}
+              })}
+            </div>
+          ));
+        })()}
       </div>
     </div>
   );
