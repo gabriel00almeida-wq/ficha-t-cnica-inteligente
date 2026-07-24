@@ -166,7 +166,15 @@ function ComboCard({
   function setPrice(key: "food99" | "ifood" | "anotai", value: string) {
     const n = parseFloat(value.replace(",", ".")) || 0;
     onChange({ ...combo, prices: { ...combo.prices, [key]: n } });
+  function copyItemsFrom(sourceId: string) {
+    const src = allCombos.find((c) => c.id === sourceId);
+    if (!src || src.id === combo.id) return;
+    onChange({
+      ...combo,
+      items: [...combo.items, ...src.items.map((it) => ({ ...it }))],
+    });
   }
+
 
   return (
     <Card className="card-paper overflow-hidden">
