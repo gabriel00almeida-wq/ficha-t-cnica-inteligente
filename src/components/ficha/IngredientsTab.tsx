@@ -48,6 +48,83 @@ function parseNum(v: string) {
   return parseFloat(v.replace(",", ".")) || 0;
 }
 
+const CATEGORIES = [
+  "Proteínas",
+  "Grãos",
+  "Farináceos",
+  "Vegetais & Frutas",
+  "Molhos & Temperos",
+  "Laticínios",
+  "Bebidas",
+  "Embalagens & Descartáveis",
+  "Outros",
+] as const;
+type Category = (typeof CATEGORIES)[number];
+
+const CATEGORY_KEYWORDS: Record<Exclude<Category, "Outros">, string[]> = {
+  "Proteínas": [
+    "salmão", "salmao", "atum", "peixe", "tilápia", "tilapia", "camarão", "camarao",
+    "polvo", "lula", "kani", "surimi", "frango", "peito de frango", "carne", "boi",
+    "filé", "file mignon", "picanha", "bacon", "linguiça", "linguica", "presunto",
+    "ovo", "ovos", "tilápia", "pescada", "peixe branco",
+  ],
+  "Grãos": [
+    "arroz", "shari", "feijão", "feijao", "gergelim", "quinoa", "lentilha", "grão", "grao",
+    "aveia",
+  ],
+  "Farináceos": [
+    "farinha", "panko", "tempurá", "tempura", "pão", "pao", "massa", "wonton",
+    "harumaki", "gyoza", "gioza", "guioza", "amido", "polvilho", "trigo",
+  ],
+  "Vegetais & Frutas": [
+    "alga", "nori", "pepino", "cebolinha", "cebola", "cenoura", "manga", "abacate",
+    "morango", "kiwi", "gengibre", "wasabi", "alho", "limão", "limao", "tomate",
+    "pimenta", "acelga", "rúcula", "rucula", "alface", "brócolis", "brocolis",
+    "cogumelo", "shitake", "shimeji", "champignon", "cream cheese", "cream",
+    "cream-cheese",
+  ],
+  "Molhos & Temperos": [
+    "shoyu", "tare", "tarê", "molho", "vinagre", "sakê", "sake", "mirim", "sal",
+    "açúcar", "acucar", "azeite", "óleo", "oleo", "maionese", "ketchup", "mostarda",
+    "tempero", "sriracha", "teriyaki", "ponzu", "dashi", "missô", "misso",
+  ],
+  "Laticínios": [
+    "queijo", "cream cheese", "creamcheese", "requeijão", "requeijao", "manteiga",
+    "leite", "iogurte", "muçarela", "mucarela", "mussarela", "parmesão", "parmesao",
+    "philadelphia",
+  ],
+  "Bebidas": [
+    "refrigerante", "coca", "coca-cola", "guaraná", "guarana", "suco", "água",
+    "agua", "cerveja", "chá", "cha", "energético", "energetico", "fanta", "sprite",
+    "h2o",
+  ],
+  "Embalagens & Descartáveis": [
+    "hashi", "adaptador", "saco", "sacola", "kraft", "embalagem", "pote", "tampa",
+    "guardanapo", "papel", "filme", "plástico", "plastico", "caixa", "bandeja",
+    "copo", "canudo", "talher", "garfo", "faca", "colher", "etiqueta", "lacre",
+    "sachê", "sache", "descartável", "descartavel",
+  ],
+};
+
+function normalizeText(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function categorize(ing: Ingredient): Category {
+  const name = normalizeText(ing.name);
+  for (const cat of Object.keys(CATEGORY_KEYWORDS) as Array<keyof typeof CATEGORY_KEYWORDS>) {
+    const keys = CATEGORY_KEYWORDS[cat];
+    if (keys.some((k) => name.includes(normalizeText(k)))) return cat;
+  }
+  return "Outros";
+}
+
+const CATEGORY_ORDER: Category[] = [...CATEGORIES];
+
+
 export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
   const [mode, setMode] = useState<"direct" | "package">("direct");
 
@@ -337,7 +414,28 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
             Nenhum ingrediente ainda. Adicione manualmente acima ou use o Scanner de NF.
           </Card>
         )}
-        {ingredients.map((ing) => {
+        {(() => {
+          const grouped = new Map<Category, Ingredient[]>();
+          for (const ing of ingredients) {
+            const cat = categorize(ing);
+            if (!grouped.has(cat)) grouped.set(cat, []);
+            grouped.get(cat)!.push(ing);
+          }
+          for (const arr of grouped.values()) {
+            arr.sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+          }
+          return CATEGORY_ORDER.filter((c) => grouped.has(c)).map((cat) => (
+            <div key={cat} className="space-y-2">
+              <div className="flex items-center gap-2 pt-2">
+                <h4 className="font-display text-sm uppercase tracking-wide text-muted-foreground">
+                  {cat}
+                </h4>
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-[10px] text-muted-foreground">
+                  {grouped.get(cat)!.length}
+                </span>
+              </div>
+              {grouped.get(cat)!.map((ing) => {
           const effective = effectivePricePerUnit(ing);
           const hasLoss = ing.yieldPercent && ing.yieldPercent > 0 && ing.yieldPercent < 100;
           const history = ing.priceHistory ?? [];
@@ -462,7 +560,10 @@ export function IngredientsTab({ ingredients, onUpsert, onRemove }: Props) {
               )}
             </Card>
           );
-        })}
+              })}
+            </div>
+          ));
+        })()}
       </div>
     </div>
   );
