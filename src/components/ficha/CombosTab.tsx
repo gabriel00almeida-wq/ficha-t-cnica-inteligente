@@ -104,6 +104,7 @@ export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, o
 
 function ComboCard({
   combo,
+  allCombos,
   ingredients,
   recipes,
   platforms,
@@ -113,6 +114,7 @@ function ComboCard({
   onRemove,
 }: {
   combo: Combo;
+  allCombos: Combo[];
   ingredients: Ingredient[];
   recipes: Recipe[];
   platforms: Platforms;
