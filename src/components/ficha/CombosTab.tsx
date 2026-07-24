@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, ChevronDown, ChevronUp, ImageIcon, Download } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronUp, ImageIcon, Download, Copy } from "lucide-react";
 import {
   type Combo,
   type Ingredient,
@@ -87,6 +87,7 @@ export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, o
         <ComboCard
           key={combo.id}
           combo={combo}
+          allCombos={combos}
           ingredients={ingredients}
           recipes={recipes}
           platforms={platforms}
@@ -103,6 +104,7 @@ export function CombosTab({ combos, ingredients, recipes, platforms, onUpsert, o
 
 function ComboCard({
   combo,
+  allCombos,
   ingredients,
   recipes,
   platforms,
@@ -112,6 +114,7 @@ function ComboCard({
   onRemove,
 }: {
   combo: Combo;
+  allCombos: Combo[];
   ingredients: Ingredient[];
   recipes: Recipe[];
   platforms: Platforms;
@@ -164,6 +167,15 @@ function ComboCard({
     const n = parseFloat(value.replace(",", ".")) || 0;
     onChange({ ...combo, prices: { ...combo.prices, [key]: n } });
   }
+  function copyItemsFrom(sourceId: string) {
+    const src = allCombos.find((c) => c.id === sourceId);
+    if (!src || src.id === combo.id) return;
+    onChange({
+      ...combo,
+      items: [...combo.items, ...src.items.map((it) => ({ ...it }))],
+    });
+  }
+
 
   return (
     <Card className="card-paper overflow-hidden">
@@ -231,6 +243,26 @@ function ComboCard({
                 </Button>
               </div>
             </div>
+            {allCombos.filter((c) => c.id !== combo.id && c.items.length > 0).length > 0 && (
+              <div className="mb-3 flex items-center gap-2 flex-wrap">
+                <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Copiar itens de:</span>
+                <Select value="" onValueChange={copyItemsFrom}>
+                  <SelectTrigger className="h-8 text-xs w-auto min-w-[180px] flex-1">
+                    <SelectValue placeholder="Escolher prato..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allCombos
+                      .filter((c) => c.id !== combo.id && c.items.length > 0)
+                      .map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} ({c.items.length})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {ingredients.length === 0 && recipes.length === 0 && (
               <p className="text-xs text-muted-foreground">
                 Cadastre ingredientes ou receitas antes de montar o combinado.
