@@ -1,55 +1,20 @@
+## Objetivo
+Permitir mover ingredientes entre categorias diretamente na lista, corrigindo classificações automáticas erradas.
 
-## Resposta rápida
+## Mudanças
 
-**Sim, já funciona parcialmente.** Hoje o scanner (`ScannerTab`) faz `upsert` no ingrediente vinculado com o novo `pricePerUnit`, e o custo dos combinados é calculado dinamicamente (`comboCost` lê `pricePerUnit` na hora), então os combinados **já refletem o novo preço automaticamente** assim que a nota é aplicada.
+### 1. `src/lib/store.ts`
+- Adicionar campo opcional `category?: IngredientCategory` em `Ingredient`.
+- Exportar o tipo `IngredientCategory` (as mesmas chaves já usadas hoje: `proteinas`, `graos`, `farinaceos`, `vegetais`, `molhos`, `laticinios`, `bebidas`, `embalagens`, `outros`) e a lista ordenada de labels.
 
-O que **falta** e vou implementar:
-1. Uma confirmação explícita ("esse item corresponde a X do seu estoque?") em vez do select silencioso atual.
-2. Histórico de preços por ingrediente com gráfico de flutuação ao longo do tempo.
-
----
-
-## Escopo
-
-### 1. Confirmação item-a-item no scanner
-Em `src/components/ficha/ScannerTab.tsx`:
-- Melhorar a heurística de match: além de nome exato, usar similaridade (normalização + inclusão de substrings, ex.: "salmão fresco" ↔ "salmão").
-- Quando houver um match sugerido, exibir um bloco de confirmação destacado por linha:
-  - "Este item **{nome da NF}** corresponde a **{ingrediente sugerido}**?"
-  - Botões **Sim, atualizar preço** / **Não, é outro item** (abre o select) / **Criar novo** / **Ignorar**.
-- Mostrar comparativo: preço antigo → preço novo, com % de variação e cor (verde queda, vermelho alta).
-- Sem match: já cai em "Criar novo" como hoje, mas com o mesmo layout.
-
-### 2. Histórico de preços
-Em `src/lib/store.ts`:
-- Adicionar tipo `PricePoint = { date: string; pricePerUnit: number; source: "manual" | "scanner"; note?: string }`.
-- Adicionar campo opcional `priceHistory?: PricePoint[]` em `Ingredient`.
-- No `upsertIngredient`, quando o `pricePerUnit` mudar em relação ao valor anterior, empurrar um novo `PricePoint` automaticamente (mantém últimos ~50 pontos).
-- Migração leve: `load()` inicializa `priceHistory: []` se ausente.
-
-### 3. Visualização da flutuação
-Duas superfícies:
-- **Na aba Ingredientes** (`IngredientsTab.tsx`): botão de "📈 Histórico" por ingrediente que abre um `Popover`/`Collapsible` com:
-  - Mini gráfico `LineChart` (recharts, já no projeto) do preço ao longo do tempo.
-  - Última variação em % e diferença em R$.
-  - Lista compacta das últimas 10 mudanças (data, valor, fonte).
-- **Badge de tendência** no card do ingrediente (▲/▼ + % vs. preço anterior) quando houver ≥ 2 pontos.
-
-### 4. Fluxo de aplicação do scanner
-Ajustar `applyAll` para:
-- Rejeitar linhas ainda não confirmadas (mostrar aviso "confirme X itens antes de aplicar").
-- Registrar `source: "scanner"` e `note: nome da loja + data da NF` no `PricePoint` criado.
-
----
-
-## Detalhes técnicos
-
-- Nenhuma mudança no backend/OCR (`ocr.functions.ts`) — a IA já retorna preços, o histórico é registrado no client ao aplicar.
-- Cálculo de custo dos combinados continua idêntico (já é reativo).
-- Persistência via `localStorage` (chave existente `ficha-sushi:v1`).
-- Bibliotecas: `recharts` (já usada em `RankingTab`), `date-fns` para formatação leve se necessário (senão `Intl.DateTimeFormat`).
+### 2. `src/components/ficha/IngredientsTab.tsx`
+- Mover o mapa de categorias + labels + função `detectCategory` para usarem o tipo compartilhado.
+- Ao agrupar: usar `ing.category ?? detectCategory(ing.name)` como categoria efetiva. Assim itens sem override continuam automáticos; itens editados ficam fixos.
+- No card de cada ingrediente, adicionar um pequeno `Select` inline (ícone `Tag` + label curto da categoria atual) entre o preço e os botões de ação. Trocar a categoria dispara `onUpsert({ ...ing, category: novaCategoria, lastUpdated: ... })` e o item pula para o grupo certo instantaneamente.
+- Incluir uma opção "Automático" no seletor que limpa o override (`category: undefined`), voltando à detecção por nome.
+- Manter o layout responsivo: no mobile (384px) o seletor entra como uma linha secundária abaixo do nome para não espremer os ícones.
 
 ## Fora do escopo
-- Sem alertas/notificações automáticos de alta de preço.
-- Sem exportação do histórico.
-- Sem sincronização entre dispositivos (segue single-user local).
+- Criar/renomear/excluir categorias próprias.
+- Drag-and-drop entre grupos.
+- Edição em massa.
