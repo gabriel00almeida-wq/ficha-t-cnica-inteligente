@@ -64,6 +64,27 @@ const PLATFORM_LABELS: Record<"food99" | "ifood" | "anotai", string> = {
 
 export function RankingTab({ combos, ingredients, recipes, platforms }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiTarget, setAiTarget] = useState<string>("");
+  const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
+
+  async function runAnalysis(snapshot: ComboSnapshot) {
+    setAiTarget(snapshot.name);
+    setAnalysis(null);
+    setAiOpen(true);
+    setAiLoading(true);
+    try {
+      const result = await analyzeCombo({ data: { combo: snapshot } });
+      setAnalysis(result);
+    } catch (e) {
+      setAiOpen(false);
+      toast.error(e instanceof Error ? e.message : "Não foi possível analisar agora.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
 
   const rows = useMemo(() => {
     return combos.map((c) => {
