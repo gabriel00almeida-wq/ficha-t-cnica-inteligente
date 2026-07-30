@@ -251,7 +251,38 @@ export function RankingTab({ combos, ingredients, recipes, platforms }: Props) {
                     )}
                   />
                 </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 w-full h-9 text-xs gap-2 border-accent/50 bg-accent/10 text-accent-foreground hover:bg-accent/20 hover:border-accent"
+                  disabled={aiLoading}
+                  onClick={() =>
+                    runAnalysis({
+                      name: r.combo.name,
+                      cost: r.cost,
+                      avgProfit: r.avgProfit,
+                      avgMargin: r.avgMargin,
+                      avgCmv: r.avgCmv,
+                      platforms: r.perPlatform.map((p) => ({
+                        label: p.label,
+                        price: p.price,
+                        cmv: p.cmv,
+                        profit: p.profit,
+                        margin: p.margin,
+                      })),
+                    })
+                  }
+                >
+                  {aiLoading && aiTarget === r.combo.name ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  Analisar com IA
+                </Button>
               </div>
+
 
               {isOpen && (
                 <div className="border-t border-border/60 bg-muted/30 p-4 space-y-4">
