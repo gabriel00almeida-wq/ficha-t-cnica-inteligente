@@ -62,6 +62,21 @@ const PLATFORM_LABELS: Record<"food99" | "ifood" | "anotai", string> = {
   anotai: "Anota AI",
 };
 
+const STATUS_TONE: Record<AiAnalysis["status"], { label: string; cls: string }> = {
+  bom: {
+    label: "Margem saudável",
+    cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+  },
+  atencao: {
+    label: "Atenção",
+    cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+  },
+  critico: {
+    label: "Crítico",
+    cls: "bg-destructive/15 text-destructive border-destructive/30",
+  },
+};
+
 export function RankingTab({ combos, ingredients, recipes, platforms }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
