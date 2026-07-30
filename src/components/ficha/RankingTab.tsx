@@ -357,6 +357,78 @@ export function RankingTab({ combos, ingredients, recipes, platforms }: Props) {
           );
         })}
       </div>
+
+      <Dialog open={aiOpen} onOpenChange={setAiOpen}>
+        <DialogContent className="max-w-[92vw] sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display text-left text-base">
+              <Sparkles className="w-4 h-4 text-accent" />
+              Consultoria de IA
+            </DialogTitle>
+          </DialogHeader>
+
+          <p className="-mt-2 text-xs text-muted-foreground">{aiTarget}</p>
+
+          {aiLoading && (
+            <div className="flex items-center gap-2 py-10 justify-center text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Analisando margens e plataformas...
+            </div>
+          )}
+
+          {!aiLoading && analysis && (
+            <div className="space-y-4">
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="w-4 h-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium">Diagnóstico</h3>
+                  <Badge
+                    variant="outline"
+                    className={cn("text-[10px]", STATUS_TONE[analysis.status].cls)}
+                  >
+                    {STATUS_TONE[analysis.status].label}
+                  </Badge>
+                </div>
+                <div className="prose-chat text-sm leading-relaxed text-muted-foreground [&_strong]:text-foreground">
+                  <ReactMarkdown>{analysis.diagnostico}</ReactMarkdown>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                  <h3 className="text-sm font-medium text-destructive">
+                    Onde está o sangramento
+                  </h3>
+                </div>
+                <div className="text-sm leading-relaxed text-muted-foreground [&_strong]:text-foreground">
+                  <ReactMarkdown>{analysis.sangramento}</ReactMarkdown>
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="w-4 h-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium">Plano de ação</h3>
+                </div>
+                <ul className="space-y-2">
+                  {analysis.plano.map((step, i) => (
+                    <li key={i} className="flex gap-2 text-sm leading-relaxed">
+                      <span className="mt-0.5 w-5 h-5 shrink-0 rounded-full bg-primary/15 text-primary text-[11px] font-medium flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <div className="text-muted-foreground [&_strong]:text-foreground">
+                        <ReactMarkdown>{step}</ReactMarkdown>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
