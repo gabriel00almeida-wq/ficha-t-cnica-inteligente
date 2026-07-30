@@ -1,9 +1,33 @@
 import { useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { BarChart3, ChevronDown, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  BarChart3,
+  ChevronDown,
+  TrendingUp,
+  TrendingDown,
+  Sparkles,
+  Loader2,
+  AlertTriangle,
+  ListChecks,
+  Stethoscope,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  analyzeCombo,
+  type AiAnalysis,
+  type ComboSnapshot,
+} from "@/lib/analysis.functions";
+
 import {
   BarChart,
   Bar,
@@ -38,8 +62,44 @@ const PLATFORM_LABELS: Record<"food99" | "ifood" | "anotai", string> = {
   anotai: "Anota AI",
 };
 
+const STATUS_TONE: Record<AiAnalysis["status"], { label: string; cls: string }> = {
+  bom: {
+    label: "Margem saudável",
+    cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+  },
+  atencao: {
+    label: "Atenção",
+    cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+  },
+  critico: {
+    label: "Crítico",
+    cls: "bg-destructive/15 text-destructive border-destructive/30",
+  },
+};
+
 export function RankingTab({ combos, ingredients, recipes, platforms }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiTarget, setAiTarget] = useState<string>("");
+  const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
+
+  async function runAnalysis(snapshot: ComboSnapshot) {
+    setAiTarget(snapshot.name);
+    setAnalysis(null);
+    setAiOpen(true);
+    setAiLoading(true);
+    try {
+      const result = await analyzeCombo({ data: { combo: snapshot } });
+      setAnalysis(result);
+    } catch (e) {
+      setAiOpen(false);
+      toast.error(e instanceof Error ? e.message : "Não foi possível analisar agora.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
 
   const rows = useMemo(() => {
     return combos.map((c) => {
@@ -206,7 +266,38 @@ export function RankingTab({ combos, ingredients, recipes, platforms }: Props) {
                     )}
                   />
                 </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 w-full h-9 text-xs gap-2 border-accent/50 bg-accent/10 text-accent-foreground hover:bg-accent/20 hover:border-accent"
+                  disabled={aiLoading}
+                  onClick={() =>
+                    runAnalysis({
+                      name: r.combo.name,
+                      cost: r.cost,
+                      avgProfit: r.avgProfit,
+                      avgMargin: r.avgMargin,
+                      avgCmv: r.avgCmv,
+                      platforms: r.perPlatform.map((p) => ({
+                        label: p.label,
+                        price: p.price,
+                        cmv: p.cmv,
+                        profit: p.profit,
+                        margin: p.margin,
+                      })),
+                    })
+                  }
+                >
+                  {aiLoading && aiTarget === r.combo.name ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  Analisar com IA
+                </Button>
               </div>
+
 
               {isOpen && (
                 <div className="border-t border-border/60 bg-muted/30 p-4 space-y-4">
@@ -281,6 +372,78 @@ export function RankingTab({ combos, ingredients, recipes, platforms }: Props) {
           );
         })}
       </div>
+
+      <Dialog open={aiOpen} onOpenChange={setAiOpen}>
+        <DialogContent className="max-w-[92vw] sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display text-left text-base">
+              <Sparkles className="w-4 h-4 text-accent" />
+              Consultoria de IA
+            </DialogTitle>
+          </DialogHeader>
+
+          <p className="-mt-2 text-xs text-muted-foreground">{aiTarget}</p>
+
+          {aiLoading && (
+            <div className="flex items-center gap-2 py-10 justify-center text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Analisando margens e plataformas...
+            </div>
+          )}
+
+          {!aiLoading && analysis && (
+            <div className="space-y-4">
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="w-4 h-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium">Diagnóstico</h3>
+                  <Badge
+                    variant="outline"
+                    className={cn("text-[10px]", STATUS_TONE[analysis.status].cls)}
+                  >
+                    {STATUS_TONE[analysis.status].label}
+                  </Badge>
+                </div>
+                <div className="prose-chat text-sm leading-relaxed text-muted-foreground [&_strong]:text-foreground">
+                  <ReactMarkdown>{analysis.diagnostico}</ReactMarkdown>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                  <h3 className="text-sm font-medium text-destructive">
+                    Onde está o sangramento
+                  </h3>
+                </div>
+                <div className="text-sm leading-relaxed text-muted-foreground [&_strong]:text-foreground">
+                  <ReactMarkdown>{analysis.sangramento}</ReactMarkdown>
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="w-4 h-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium">Plano de ação</h3>
+                </div>
+                <ul className="space-y-2">
+                  {analysis.plano.map((step, i) => (
+                    <li key={i} className="flex gap-2 text-sm leading-relaxed">
+                      <span className="mt-0.5 w-5 h-5 shrink-0 rounded-full bg-primary/15 text-primary text-[11px] font-medium flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <div className="text-muted-foreground [&_strong]:text-foreground">
+                        <ReactMarkdown>{step}</ReactMarkdown>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
