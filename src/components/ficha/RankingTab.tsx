@@ -1,9 +1,33 @@
 import { useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { BarChart3, ChevronDown, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  BarChart3,
+  ChevronDown,
+  TrendingUp,
+  TrendingDown,
+  Sparkles,
+  Loader2,
+  AlertTriangle,
+  ListChecks,
+  Stethoscope,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  analyzeCombo,
+  type AiAnalysis,
+  type ComboSnapshot,
+} from "@/lib/analysis.functions";
+
 import {
   BarChart,
   Bar,
