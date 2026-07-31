@@ -31,35 +31,39 @@ export const analyzeCombo = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data }): Promise<AiAnalysis> => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY ausente no servidor.");
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY ausente no servidor.");
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+    const res = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [
+            { role: "user", parts: [{ text: buildComboContext(data.combo) }] },
+          ],
+          generationConfig: { responseMimeType: "application/json" },
+        }),
       },
-      body: JSON.stringify({
-        model: "openai/gpt-5.6-sol",
-        reasoning_effort: "none",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: buildComboContext(data.combo) },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
+    );
 
     if (res.status === 429)
       throw new Error("Muitas análises seguidas. Tente novamente em instantes.");
-    if (res.status === 402) throw new Error("Créditos de IA esgotados no workspace.");
+    if (res.status === 402 || res.status === 403)
+      throw new Error("Chave da Gemini inválida ou sem cota disponível.");
     if (!res.ok) throw new Error(`Falha na análise (${res.status}): ${await res.text()}`);
 
     const json = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
     };
-    const raw = json.choices?.[0]?.message?.content ?? "";
+    const raw =
+      json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+
     let parsed: Partial<AiAnalysis> = {};
     try {
       parsed = JSON.parse(raw.replace(/^```json\s*|\s*```$/g, ""));
