@@ -35,7 +35,7 @@ export const analyzeCombo = createServerFn({ method: "POST" })
     if (!apiKey) throw new Error("GEMINI_API_KEY ausente no servidor.");
 
     const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
       {
         method: "POST",
         headers: {
